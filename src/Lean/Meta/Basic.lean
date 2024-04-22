@@ -578,7 +578,7 @@ Return `none` if `mvarId` has no declaration in the current metavariable context
 def _root_.Lean.MVarId.findDecl? (mvarId : MVarId) : MetaM (Option MetavarDecl) :=
   return (← getMCtx).findDecl? mvarId
 
-@[deprecated MVarId.findDecl?]
+@[deprecated MVarId.findDecl?] -- 2022-07-15
 def findMVarDecl? (mvarId : MVarId) : MetaM (Option MetavarDecl) :=
   mvarId.findDecl?
 
@@ -591,7 +591,7 @@ def _root_.Lean.MVarId.getDecl (mvarId : MVarId) : MetaM MetavarDecl := do
   | some d => pure d
   | none   => throwError "unknown metavariable '?{mvarId.name}'"
 
-@[deprecated MVarId.getDecl]
+@[deprecated MVarId.getDecl] -- 2022-07-15
 def getMVarDecl (mvarId : MVarId) : MetaM MetavarDecl := do
   mvarId.getDecl
 
@@ -601,7 +601,7 @@ Return `mvarId` kind. Throw an exception if `mvarId` is not declared in the curr
 def _root_.Lean.MVarId.getKind (mvarId : MVarId) : MetaM MetavarKind :=
   return (← mvarId.getDecl).kind
 
-@[deprecated MVarId.getKind]
+@[deprecated MVarId.getKind] -- 2022-07-15
 def getMVarDeclKind (mvarId : MVarId) : MetaM MetavarKind :=
   mvarId.getKind
 
@@ -618,7 +618,7 @@ Set `mvarId` kind in the current metavariable context.
 def _root_.Lean.MVarId.setKind (mvarId : MVarId) (kind : MetavarKind) : MetaM Unit :=
   modifyMCtx fun mctx => mctx.setMVarKind mvarId kind
 
-@[deprecated MVarId.setKind]
+@[deprecated MVarId.setKind] -- 2022-07-15
 def setMVarKind (mvarId : MVarId) (kind : MetavarKind) : MetaM Unit :=
   mvarId.setKind kind
 
@@ -627,7 +627,7 @@ def setMVarKind (mvarId : MVarId) (kind : MetavarKind) : MetaM Unit :=
 def _root_.Lean.MVarId.setType (mvarId : MVarId) (type : Expr) : MetaM Unit := do
   modifyMCtx fun mctx => mctx.setMVarType mvarId type
 
-@[deprecated MVarId.setType]
+@[deprecated MVarId.setType] -- 2022-07-15
 def setMVarType (mvarId : MVarId) (type : Expr) : MetaM Unit := do
   mvarId.setType type
 
@@ -638,7 +638,7 @@ That is, its `depth` is different from the current metavariable context depth.
 def _root_.Lean.MVarId.isReadOnly (mvarId : MVarId) : MetaM Bool := do
   return (← mvarId.getDecl).depth != (← getMCtx).depth
 
-@[deprecated MVarId.isReadOnly]
+@[deprecated MVarId.isReadOnly] -- 2022-07-15
 def isReadOnlyExprMVar (mvarId : MVarId) : MetaM Bool := do
   mvarId.isReadOnly
 
@@ -653,7 +653,7 @@ def _root_.Lean.MVarId.isReadOnlyOrSyntheticOpaque (mvarId : MVarId) : MetaM Boo
   | MetavarKind.syntheticOpaque => return !(← getConfig).assignSyntheticOpaque
   | _ => return mvarDecl.depth != (← getMCtx).depth
 
-@[deprecated MVarId.isReadOnlyOrSyntheticOpaque]
+@[deprecated MVarId.isReadOnlyOrSyntheticOpaque] -- 2022-07-15
 def isReadOnlyOrSyntheticOpaqueExprMVar (mvarId : MVarId) : MetaM Bool := do
   mvarId.isReadOnlyOrSyntheticOpaque
 
@@ -665,7 +665,7 @@ def _root_.Lean.LMVarId.getLevel (mvarId : LMVarId) : MetaM Nat := do
   | some depth => return depth
   | _          => throwError "unknown universe metavariable '?{mvarId.name}'"
 
-@[deprecated LMVarId.getLevel]
+@[deprecated LMVarId.getLevel] -- 2022-07-15
 def getLevelMVarDepth (mvarId : LMVarId) : MetaM Nat :=
   mvarId.getLevel
 
@@ -676,7 +676,7 @@ That is, its `depth` is different from the current metavariable context depth.
 def _root_.Lean.LMVarId.isReadOnly (mvarId : LMVarId) : MetaM Bool :=
   return (← mvarId.getLevel) < (← getMCtx).levelAssignDepth
 
-@[deprecated LMVarId.isReadOnly]
+@[deprecated LMVarId.isReadOnly] -- 2022-07-15
 def isReadOnlyLevelMVar (mvarId : LMVarId) : MetaM Bool := do
   mvarId.isReadOnly
 
@@ -686,7 +686,7 @@ Set the user-facing name for the given metavariable.
 def _root_.Lean.MVarId.setUserName (mvarId : MVarId) (newUserName : Name) : MetaM Unit :=
   modifyMCtx fun mctx => mctx.setMVarUserName mvarId newUserName
 
-@[deprecated MVarId.setUserName]
+@[deprecated MVarId.setUserName] -- 2022-07-15
 def setMVarUserName (mvarId : MVarId) (userNameNew : Name) : MetaM Unit :=
   mvarId.setUserName userNameNew
 
@@ -696,7 +696,7 @@ Throw an exception saying `fvarId` is not declared in the current local context.
 def _root_.Lean.FVarId.throwUnknown (fvarId : FVarId) : CoreM α :=
   throwError "unknown free variable '{mkFVar fvarId}'"
 
-@[deprecated FVarId.throwUnknown]
+@[deprecated FVarId.throwUnknown] -- 2022-07-15
 def throwUnknownFVar (fvarId : FVarId) : MetaM α :=
   fvarId.throwUnknown
 
@@ -706,7 +706,7 @@ Return `some decl` if `fvarId` is declared in the current local context.
 def _root_.Lean.FVarId.findDecl? (fvarId : FVarId) : MetaM (Option LocalDecl) :=
   return (← getLCtx).find? fvarId
 
-@[deprecated FVarId.findDecl?]
+@[deprecated FVarId.findDecl?] -- 2022-07-15
 def findLocalDecl? (fvarId : FVarId) : MetaM (Option LocalDecl) :=
   fvarId.findDecl?
 
@@ -719,7 +719,7 @@ def _root_.Lean.FVarId.getDecl (fvarId : FVarId) : MetaM LocalDecl := do
   | some d => return d
   | none   => fvarId.throwUnknown
 
-@[deprecated FVarId.getDecl]
+@[deprecated FVarId.getDecl] -- 2022-07-15
 def getLocalDecl (fvarId : FVarId) : MetaM LocalDecl := do
   fvarId.getDecl
 
@@ -786,7 +786,7 @@ contain a metavariable `?m` s.t. local context of `?m` contains a free variable 
 def _root_.Lean.Expr.abstractRangeM (e : Expr) (n : Nat) (xs : Array Expr) : MetaM Expr :=
   liftMkBindingM <| MetavarContext.abstractRange e n xs
 
-@[deprecated Expr.abstractRangeM]
+@[deprecated Expr.abstractRangeM] -- 2022-07-15
 def abstractRange (e : Expr) (n : Nat) (xs : Array Expr) : MetaM Expr :=
   e.abstractRangeM n xs
 
@@ -797,7 +797,7 @@ Similar to `Expr.abstract`, but handles metavariables correctly.
 def _root_.Lean.Expr.abstractM (e : Expr) (xs : Array Expr) : MetaM Expr :=
   e.abstractRangeM xs.size xs
 
-@[deprecated Expr.abstractM]
+@[deprecated Expr.abstractM] -- 2022-07-15
 def abstract (e : Expr) (xs : Array Expr) : MetaM Expr :=
   e.abstractM xs
 
@@ -1436,7 +1436,7 @@ private def withMVarContextImp (mvarId : MVarId) (x : MetaM α) : MetaM α := do
 def _root_.Lean.MVarId.withContext (mvarId : MVarId) : n α → n α :=
   mapMetaM <| withMVarContextImp mvarId
 
-@[deprecated MVarId.withContext]
+@[deprecated MVarId.withContext] -- 2022-07-15
 def withMVarContext (mvarId : MVarId) : n α → n α :=
   mvarId.withContext
 
