@@ -8,6 +8,7 @@ module
 prelude
 public import Lean.Compiler.IR.Format
 public import Lean.Compiler.LCNF.MonoTypes
+public import Lean.Compiler.CStructAttr
 
 public section
 
@@ -73,6 +74,10 @@ where fillCache : CoreM IRType := do
     | ``lcVoid => return .void
     | _ =>
       let env ← Lean.getEnv
+      -- Check for @[cstruct] attribute first
+      -- Return IRType.struct for @[cstruct] types - field types are looked up from CStructInfo later
+      if hasCStructAttr env name then
+        return .struct (some name) #[]
       let some (.inductInfo inductiveVal) := env.find? name | return .tobject
       let ctorNames := inductiveVal.ctors
       let numCtors := ctorNames.length
@@ -205,7 +210,11 @@ where fillCache := do
       | .float =>
         has8BScalar := true
         .pure <| .scalar 8 0 .float
-      | .struct .. | .union .. => unreachable!
+      -- Struct/union types in regular Lean structures are stored as boxed objects
+      | .struct .. | .union .. => do
+        let i := nextIdx
+        nextIdx := nextIdx + 1
+        pure <| .object i .object
       fields := fields.push ctorField
     let numObjs := nextIdx
     ⟨fields, nextIdx⟩ := Id.run <| StateT.run (s := nextIdx) <| fields.mapM fun field => do

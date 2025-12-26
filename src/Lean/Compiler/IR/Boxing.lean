@@ -66,7 +66,11 @@ def addBoxedVersions (env : Environment) (decls : Array Decl) : Array Decl :=
   decls ++ boxedDecls
 
 def eqvTypes (t₁ t₂ : IRType) : Bool :=
-  (t₁.isScalar == t₂.isScalar) && (!t₁.isScalar || t₁ == t₂)
+  -- Struct/union types need exact match (not equivalent to plain objects)
+  if t₁.isStruct || t₂.isStruct || t₁.isUnion || t₂.isUnion then
+    t₁ == t₂
+  else
+    (t₁.isScalar == t₂.isScalar) && (!t₁.isScalar || t₁ == t₂)
 
 structure BoxingContext where
   f : FunId
@@ -147,9 +151,17 @@ private def isExpensiveConstantValueBoxing (x : VarId) (xType : IRType) : M (Opt
 
 /-- Auxiliary function used by castVarIfNeeded.
    It is used when the expected type does not match `xType`.
-   If `xType` is scalar, then we need to "box" it. Otherwise, we need to "unbox" it. -/
+   If `xType` is scalar, then we need to "box" it. Otherwise, we need to "unbox" it.
+   For struct types: box when going struct→object, unbox when going object→struct. -/
 def mkCast (x : VarId) (xType : IRType) (expectedType : IRType) : M Expr := do
-  if expectedType.isScalar then
+  -- Handle struct/union types specially
+  if expectedType.isStruct || expectedType.isUnion then
+    -- Expected is struct, source must be object - unbox it
+    return .unbox x
+  else if xType.isStruct || xType.isUnion then
+    -- Source is struct, expected is object - box it
+    return .box xType x
+  else if expectedType.isScalar then
     return .unbox x
   else
     match (← isExpensiveConstantValueBoxing x xType) with

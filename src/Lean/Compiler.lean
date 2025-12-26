@@ -10,6 +10,7 @@ public import Lean.Compiler.InlineAttrs
 public import Lean.Compiler.Specialize
 public import Lean.Compiler.ClosedTermCache
 public import Lean.Compiler.ExternAttr
+public import Lean.Compiler.CStructAttr
 public import Lean.Compiler.ImplementedByAttr
 public import Lean.Compiler.NeverExtractAttr
 public import Lean.Compiler.IR

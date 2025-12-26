@@ -12,6 +12,7 @@ public import Lean.Compiler.IR.NormIds
 public import Lean.Compiler.IR.SimpCase
 public import Lean.Compiler.IR.Boxing
 public import Lean.Compiler.ModPkgExt
+public import Lean.Compiler.CStructAttr
 
 public section
 
@@ -60,6 +61,41 @@ def argToCString (x : Arg) : String :=
 def emitArg (x : Arg) : M Unit :=
   emit (argToCString x)
 
+/-- Convert IR type to C type string. For struct/union, looks up CStructInfo. -/
+partial def toCTypeAux (env : Environment) : IRType → String
+  | IRType.float      => "double"
+  | IRType.float32    => "float"
+  | IRType.uint8      => "uint8_t"
+  | IRType.uint16     => "uint16_t"
+  | IRType.uint32     => "uint32_t"
+  | IRType.uint64     => "uint64_t"
+  | IRType.usize      => "size_t"
+  | IRType.object     => "lean_object*"
+  | IRType.tagged     => "lean_object*"
+  | IRType.tobject    => "lean_object*"
+  | IRType.erased     => "lean_object*"
+  | IRType.void       => "lean_object*"
+  | IRType.struct (some name) types =>
+    -- Look up CStructInfo for @[cstruct] types
+    match getCStructInfo? env name with
+    | some cInfo => cInfo.cName
+    | none =>
+      -- Anonymous/internal struct - generate inline type
+      let fields := types.mapIdx (fun i t => s!"{toCTypeAux env t} _field{i};")
+      s!"struct \{ {String.intercalate " " fields.toList} }"
+  | IRType.struct none types =>
+    -- Anonymous struct
+    let fields := types.mapIdx (fun i t => s!"{toCTypeAux env t} _field{i};")
+    s!"struct \{ {String.intercalate " " fields.toList} }"
+  | IRType.union name types =>
+    -- Look up CStructInfo for @[cstruct] types
+    match getCStructInfo? env name with
+    | some cInfo => cInfo.cName
+    | none =>
+      -- Generate union name from Lean name
+      s!"union lean_{name.toString.replace "." "_"}"
+
+/-- Pure version for backward compatibility (panics on struct/union). -/
 def toCType : IRType → String
   | IRType.float      => "double"
   | IRType.float32    => "float"
@@ -73,8 +109,12 @@ def toCType : IRType → String
   | IRType.tobject    => "lean_object*"
   | IRType.erased     => "lean_object*"
   | IRType.void       => "lean_object*"
-  | IRType.struct _ _ => panic! "not implemented yet"
-  | IRType.union _ _  => panic! "not implemented yet"
+  | IRType.struct _ _ => panic! "toCType: use toCTypeM for struct types"
+  | IRType.union _ _  => panic! "toCType: use toCTypeM for union types"
+
+/-- Monadic version that has access to environment for CStructInfo lookup. -/
+def toCTypeM (t : IRType) : M String := do
+  return toCTypeAux (← getEnv) t
 
 def throwInvalidExportName {α : Type} (n : Name) : M α :=
   throw s!"invalid export name '{n}'"
@@ -110,7 +150,8 @@ def emitFnDeclAux (decl : Decl) (cppBaseName : String) (isExternal : Bool) : M U
     else emit "LEAN_EXPORT "
   else
     if !isExternal then emit "LEAN_EXPORT "
-  emit (toCType decl.resultType ++ " " ++ cppBaseName)
+  let resultCType ← toCTypeM decl.resultType
+  emit (resultCType ++ " " ++ cppBaseName)
   unless ps.isEmpty do
     emit "("
     -- We omit void parameters, note that they are guaranteed not to occur in boxed functions
@@ -122,7 +163,7 @@ def emitFnDeclAux (decl : Decl) (cppBaseName : String) (isExternal : Bool) : M U
     else
       ps.size.forM fun i _ => do
         if i > 0 then emit ", "
-        emit (toCType ps[i].ty)
+        emit (← toCTypeM ps[i].ty)
     emit ")"
   emitLn ";"
 
@@ -246,6 +287,27 @@ def emitFileHeader : M Unit := do
     "#endif"
   ]
 
+/-- Emit C struct typedefs for all @[cstruct] marked types in this module. -/
+def emitCStructTypedefs : M Unit := do
+  let env ← getEnv
+  let cstructs := getAllCStructs env
+  unless cstructs.isEmpty do
+    emitLn ""
+    emitLn "/* C struct typedefs for FFI */"
+    for (name, cInfo) in cstructs do
+      emitLn s!"/* {name} */"
+      emitLn s!"typedef struct \{"
+      -- For now, emit placeholder fields based on size
+      -- TODO: Extract actual field info from the Lean structure
+      if cInfo.fieldNames.isEmpty then
+        -- No field info - emit as opaque bytes
+        emitLn s!"  uint8_t _data[{cInfo.size}];"
+      else
+        for (fieldName, cType) in cInfo.fieldNames.zip cInfo.fieldCTypes do
+          emitLn s!"  {cType} {fieldName};"
+      emitLn s!"} {cInfo.cName};"
+    emitLn ""
+
 def emitFileFooter : M Unit :=
   emitLns [
    "#ifdef __cplusplus",
@@ -263,7 +325,7 @@ def getJPParams (j : JoinPointId) : M (Array Param) := do
   | none    => throw "unknown join point"
 
 def declareVar (x : VarId) (t : IRType) : M Unit := do
-  emit (toCType t); emit " "; emit x; emit "; "
+  emit (← toCTypeM t); emit " "; emit x; emit "; "
 
 def declareParams (ps : Array Param) : M Unit :=
   ps.forM fun p => declareVar p.x p.ty
@@ -472,12 +534,43 @@ def emitBoxFn (xType : IRType) : M Unit :=
   | _              => emit "lean_box"
 
 def emitBox (z : VarId) (x : VarId) (xType : IRType) : M Unit := do
-  emitLhs z; emitBoxFn xType; emit "("; emit x; emitLn ");"
+  match xType with
+  | .struct (some name) _ =>
+    -- Box a struct by allocating an object and copying the struct into it
+    let env ← getEnv
+    match getCStructInfo? env name with
+    | some cInfo =>
+      -- Allocate a Lean object with enough scalar bytes for the struct
+      emit "{ lean_object* _tmp = lean_alloc_ctor(0, 0, "; emit cInfo.size; emitLn ");"
+      emit "memcpy(lean_ctor_scalar_cptr(_tmp), &"; emit x; emit ", sizeof("; emit cInfo.cName; emitLn "));"
+      emitLhs z; emitLn "_tmp; }"
+    | none =>
+      -- Fallback: treat as opaque object
+      emitLhs z; emit "lean_box(0); /* struct without CStructInfo: "; emit (toString name); emitLn " */"
+  | .struct none _ | .union _ _ =>
+    -- Anonymous struct/union - not supported for boxing
+    emitLhs z; emitLn "lean_box(0); /* unsupported anonymous struct/union boxing */"
+  | _ =>
+    emitLhs z; emitBoxFn xType; emit "("; emit x; emitLn ");"
 
 def emitUnbox (z : VarId) (t : IRType) (x : VarId) : M Unit := do
-  emitLhs z
-  emit (getUnboxOpName t)
-  emit "("; emit x; emitLn ");"
+  match t with
+  | .struct (some name) _ =>
+    -- Unbox a struct by extracting it from the object
+    let env ← getEnv
+    match getCStructInfo? env name with
+    | some cInfo =>
+      emit "memcpy(&"; emit z; emit ", lean_ctor_scalar_cptr("; emit x; emit "), sizeof("; emit cInfo.cName; emitLn "));"
+    | none =>
+      -- Fallback: zero-initialize
+      emit "memset(&"; emit z; emit ", 0, sizeof("; emit z; emitLn ")); /* struct without CStructInfo */"
+  | .struct none _ | .union _ _ =>
+    -- Anonymous struct/union - not supported
+    emit "memset(&"; emit z; emit ", 0, sizeof("; emit z; emitLn ")); /* unsupported anonymous struct/union unboxing */"
+  | _ =>
+    emitLhs z
+    emit (getUnboxOpName t)
+    emit "("; emit x; emitLn ");"
 
 def emitIsShared (z : VarId) (x : VarId) : M Unit := do
   emitLhs z; emit "!lean_is_exclusive("; emit x; emitLn ");"
@@ -529,12 +622,39 @@ def emitLit (z : VarId) (t : IRType) (v : LitVal) : M Unit := do
     emit v.utf8ByteSize; emit ", ";
     emit v.length; emitLn ");"
 
-def emitVDecl (z : VarId) (t : IRType) (v : Expr) : M Unit :=
+def emitStructCtor (z : VarId) (cInfo : CStructInfo) (ys : Array Arg) : M Unit := do
+  -- Emit C compound literal: (struct_name){ arg1, arg2, ... }
+  emitLhs z
+  emit s!"({cInfo.cName})\{ "
+  for h : i in [:ys.size] do
+    if i > 0 then emit ", "
+    emitArg ys[i]
+  emitLn " };"
+
+def emitStructProj (z : VarId) (i : Nat) (x : VarId) (cInfo : CStructInfo) : M Unit := do
+  emitLhs z
+  emit x
+  -- Use field name if available, otherwise _field{i}
+  if h : i < cInfo.fieldNames.size then
+    emit "."; emit (toString cInfo.fieldNames[i])
+  else
+    emit "._field"; emit i
+  emitLn ";"
+
+def emitVDecl (z : VarId) (t : IRType) (v : Expr) : M Unit := do
   match v with
-  | Expr.ctor c ys      => emitCtor z c ys
+  | Expr.ctor c ys      =>
+    -- Check if result type is a @[cstruct] type
+    match t with
+    | .struct (some name) _ =>
+      let env ← getEnv
+      match getCStructInfo? env name with
+      | some cInfo => emitStructCtor z cInfo ys
+      | none => emitCtor z c ys
+    | _ => emitCtor z c ys
   | Expr.reset n x      => emitReset z n x
   | Expr.reuse x c u ys => emitReuse z x c u ys
-  | Expr.proj i x       => emitProj z i x
+  | Expr.proj i x       => emitProj z i x  -- Type of x not available here, handled by getCtorLayout
   | Expr.uproj i x      => emitUProj z i x
   | Expr.sproj n o x    => emitSProj z t n o x
   | Expr.fap c ys       => emitFullApp z c ys
@@ -590,7 +710,7 @@ def emitTailCall (v : Expr) : M Unit :=
           let p := ps[i]
           let y := ys[i]!
           unless paramEqArg p y do
-            emit (toCType p.ty); emit " _tmp_"; emit i; emit " = "; emitArg y; emitLn ";"
+            emit (← toCTypeM p.ty); emit " _tmp_"; emit i; emit " = "; emitArg y; emitLn ";"
         ps.size.forM fun i _ => do
           let p := ps[i]
           let y := ys[i]!
@@ -678,7 +798,7 @@ def emitDeclAux (d : Decl) : M Unit := do
         emit "static "
       else
         emit "LEAN_EXPORT "  -- make symbol visible to the interpreter
-      emit (toCType t); emit " ";
+      emit (← toCTypeM t); emit " ";
       if xs.size > 0 then
         let xs := xs.filter (fun p => !p.ty.isVoid)
         emit baseName;
@@ -689,7 +809,7 @@ def emitDeclAux (d : Decl) : M Unit := do
           xs.size.forM fun i _ => do
             if i > 0 then emit ", "
             let x := xs[i]
-            emit (toCType x.ty); emit " "; emit x.x
+            emit (← toCTypeM x.ty); emit " "; emit x.x
         emit ")"
       else
         emit ("_init_" ++ baseName ++ "()")
@@ -777,6 +897,7 @@ def emitInitFn : M Unit := do
 
 def main : M Unit := do
   emitFileHeader
+  emitCStructTypedefs  -- Emit C struct typedefs before function declarations
   emitFnDecls
   emitFns
   emitInitFn

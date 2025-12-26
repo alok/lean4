@@ -124,6 +124,28 @@ def boxed : IRType → IRType
   | void | tagged | uint8 | uint16 => tagged
   | _ => tobject
 
+/-- Check if this is a struct type. -/
+def isStruct : IRType → Bool
+  | struct .. => true
+  | _ => false
+
+/-- Check if this is a union type. -/
+def isUnion : IRType → Bool
+  | union .. => true
+  | _ => false
+
+/-- Get the Lean type name for struct/union types. -/
+def getStructName? : IRType → Option Name
+  | struct (some name) _ => some name
+  | union name _ => some name
+  | _ => none
+
+/-- Get the field types for struct/union types. -/
+def getStructFieldTypes : IRType → Array IRType
+  | struct _ types => types
+  | union _ types => types
+  | _ => #[]
+
 end IRType
 
 /-- Arguments to applications, constructors, etc.
