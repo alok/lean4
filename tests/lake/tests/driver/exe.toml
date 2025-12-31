@@ -1,6 +1,7 @@
 name = "test"
 testDriver = "driver"
 lintDriver = "driver"
+benchDriver = "driver"
 
 [[lean_exe]]
 name = "driver"

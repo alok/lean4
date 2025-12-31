@@ -1,5 +1,6 @@
 name = "test"
 testDriver = "Test"
+benchDriver = "Test"
 
 [[lean_lib]]
 name = "Test"

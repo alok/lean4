@@ -1,6 +1,7 @@
 name = "test"
 testDriver = "dep/driver"
 lintDriver = "dep/driver"
+benchDriver = "dep/driver"
 
 [[require]]
 name = "dep"
