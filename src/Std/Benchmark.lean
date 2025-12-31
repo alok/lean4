@@ -2,7 +2,7 @@
 A small benchmarking harness for Lean programs.
 
 It provides warmup runs, automatic run count determination, summary statistics,
-and multiple output formats (pretty, JSON, radar-compatible).
+and multiple output formats (pretty, pretty-full, JSON, radar-compatible).
 -/
 module
 
@@ -30,6 +30,7 @@ open Std.Time
 
 inductive OutputFormat where
   | pretty
+  | prettyFull
   | json
   | radar
   deriving DecidableEq
@@ -101,6 +102,26 @@ def formatDuration (seconds : Float) : String :=
     s!"{formatFloat (seconds * 1e3)} ms"
   else
     s!"{formatFloat seconds} s"
+
+def formatCount (x : Float) : String :=
+  let ax := Float.abs x
+  if ax < 1.0e3 then
+    formatFloat x
+  else if ax < 1.0e6 then
+    s!"{formatFloat (x / 1.0e3)}k"
+  else if ax < 1.0e9 then
+    s!"{formatFloat (x / 1.0e6)}M"
+  else
+    s!"{formatFloat (x / 1.0e9)}G"
+
+def formatKiB (kb : Float) : String :=
+  let akb := Float.abs kb
+  if akb < 1024.0 then
+    s!"{formatFloat kb} KiB"
+  else if akb < 1024.0 * 1024.0 then
+    s!"{formatFloat (kb / 1024.0)} MiB"
+  else
+    s!"{formatFloat (kb / (1024.0 * 1024.0))} GiB"
 
 def padRight (s : String) (n : Nat) : String :=
   if s.length >= n then s else s ++ String.ofList (List.replicate (n - s.length) ' ')
@@ -332,6 +353,48 @@ def printPretty (rs : Array BenchResult) : IO Unit := do
       rel
     ].toList
 
+def printPrettyFull (rs : Array BenchResult) : IO Unit := do
+  if rs.isEmpty then return ()
+  let fastest := rs.foldl (fun acc r => min acc r.wall.mean) rs[0]!.wall.mean
+  let mut rows : Array (Array String) := #[]
+  let mut widths : Array Nat := #["Benchmark".length, "Time (mean ± σ)".length,
+    "CPU (mean ± σ)".length, "HB".length, "RSS Δ".length, "Min ... Max".length,
+    "Runs".length, "Relative".length]
+  for r in rs do
+    let meanStr := formatDuration r.wall.mean
+    let stddevStr :=
+      match r.wall.stddev? with
+      | some s => s!" ± {formatDuration s}"
+      | none => ""
+    let timeStr := meanStr ++ stddevStr
+    let cpuStats := statsOf (r.samples.map (fun s => s.cpuUserSeconds + s.cpuSystemSeconds))
+    let cpuMeanStr := formatDuration cpuStats.mean
+    let cpuStddevStr :=
+      match cpuStats.stddev? with
+      | some s => s!" ± {formatDuration s}"
+      | none => ""
+    let cpuStr := cpuMeanStr ++ cpuStddevStr
+    let hbStr := formatCount r.heartbeats.mean
+    let rssStr := formatKiB r.maxRssDeltaKb.mean
+    let minMaxStr := s!"{formatDuration r.wall.min} ... {formatDuration r.wall.max}"
+    let runsStr := toString r.samples.size
+    let rel :=
+      if fastest == 0.0 then "n/a"
+      else
+        let ratio := r.wall.mean / fastest
+        if ratio == 1.0 then "1.00x"
+        else s!"{formatFloat ratio}x"
+    let row := #[r.name, timeStr, cpuStr, hbStr, rssStr, minMaxStr, runsStr, rel]
+    rows := rows.push row
+    widths := widths.zipWith (fun w col => Nat.max w col.length) row
+  let header := #[
+    "Benchmark", "Time (mean ± σ)", "CPU (mean ± σ)", "HB", "RSS Δ",
+    "Min ... Max", "Runs", "Relative"
+  ]
+  IO.println <| String.intercalate "  " <| (header.zipWith (fun col w => padRight col w) widths).toList
+  for row in rows do
+    IO.println <| String.intercalate "  " <| (row.zipWith (fun col w => padRight col w) widths).toList
+
 def printRadar (cfg : Config) (rs : Array BenchResult) : IO Unit := do
   let topicPrefix := cfg.radarTopic?.getD "bench"
   for r in rs do
@@ -349,6 +412,7 @@ def writeJson (path : System.FilePath) (rs : Array BenchResult) : IO Unit := do
 def outputResults (cfg : Config) (rs : Array BenchResult) : IO Unit := do
   match cfg.format with
   | .pretty => printPretty rs
+  | .prettyFull => printPrettyFull rs
   | .json =>
       if let some out := cfg.outFile? then
         writeJson out rs
@@ -464,6 +528,8 @@ public def Config.parseArgs (args : List String) : Except String (Config × List
       else if arg.startsWith "--format=" then
         match (arg.drop 9).toString with
         | "pretty" => go {cfg with format := .pretty} xs
+        | "pretty-full" => go {cfg with format := .prettyFull} xs
+        | "full" => go {cfg with format := .prettyFull} xs
         | "json" => go {cfg with format := .json, showProgress := false} xs
         | "radar" => go {cfg with format := .radar, showProgress := false} xs
         | _ => .error s!"unknown format '{(arg.drop 9).toString}'"
@@ -472,6 +538,8 @@ public def Config.parseArgs (args : List String) : Except String (Config × List
         | v :: xs' =>
           match v with
           | "pretty" => go {cfg with format := .pretty} xs'
+          | "pretty-full" => go {cfg with format := .prettyFull} xs'
+          | "full" => go {cfg with format := .prettyFull} xs'
           | "json" => go {cfg with format := .json, showProgress := false} xs'
           | "radar" => go {cfg with format := .radar, showProgress := false} xs'
           | _ => .error s!"unknown format '{v}'"
