@@ -11,6 +11,7 @@ public import Std.Do
 public import Std.Sat
 public import Std.Sync
 public import Std.Time
+public import Std.Benchmark
 public import Std.Tactic
 public import Std.Internal
 public import Std.Net
