@@ -20,5 +20,6 @@ fi
   --format radar \
   --radar-topic benchlib \
   --min-runs 10 \
+  --max-runs 200 \
   --warmup 2 \
   --no-progress
