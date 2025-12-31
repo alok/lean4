@@ -65,6 +65,16 @@ public builtin_initialize testDriverAttr : OrderedTagAttribute ←
       unless valid do
         throwError "attribute `test_driver` can only be used on a `script`, `lean_exe`, or `lean_lib`"
 
+public builtin_initialize benchDriverAttr : OrderedTagAttribute ←
+  registerOrderedTagAttribute `bench_driver "mark a Lake script, executable, or library as package's bench driver"
+    fun name => do
+      let valid ← getEnv <&> fun env =>
+        scriptAttr.hasTag env name ||
+        leanExeAttr.hasTag env name ||
+        leanLibAttr.hasTag env name
+      unless valid do
+        throwError "attribute `bench_driver` can only be used on a `script`, `lean_exe`, or `lean_lib`"
+
 public builtin_initialize lintDriverAttr : OrderedTagAttribute ←
   registerOrderedTagAttribute `lint_driver "mark a Lake script or executable as package's linter"
     fun name => do

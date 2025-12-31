@@ -27,6 +27,8 @@ COMMANDS:
   check-build           check if any default build targets are configured
   test                  test the package using the configured test driver
   check-test            check if there is a properly configured test driver
+  bench                 benchmark the package using the configured bench driver
+  check-bench           check if there is a properly configured bench driver
   lint                  lint the package using the configured lint driver
   check-lint            check if there is a properly configured lint driver
   clean                 remove build outputs
@@ -238,6 +240,35 @@ Exits with code 0 if the workspace's root package has a properly
 configured lint driver. Errors (with code 1) otherwise.
 
 Does NOT verify that the configured test driver actually exists in the
+package or its dependencies. It merely verifies that one is specified.
+"
+
+def helpBench :=
+"Benchmark the workspace's root package using its configured bench driver
+
+USAGE:
+  lake bench [-- <args>...]
+
+A bench driver can be configured by either setting the `benchDriver`
+package configuration option or by tagging a script, executable, or library
+`@[bench_driver]`. A definition in a dependency can be used as a bench driver
+by using the `<pkg>/<name>` syntax for the `benchDriver` configuration option.
+
+A script bench driver will be run with the package configuration's
+`benchDriverArgs` plus the CLI `args`. An executable bench driver will be
+built and then run like a script. A library bench driver will just be built.
+"
+
+def helpCheckBench :=
+"Check if there is a properly configured bench driver
+
+USAGE:
+  lake check-bench
+
+Exits with code 0 if the workspace's root package has a properly
+configured bench driver. Errors (with code 1) otherwise.
+
+Does NOT verify that the configured bench driver actually exists in the
 package or its dependencies. It merely verifies that one is specified.
 "
 
@@ -554,6 +585,8 @@ public def help : (cmd : String) → String
 | "cache"               => helpCacheCli
 | "test"                => helpTest
 | "check-test"          => helpCheckTest
+| "bench"               => helpBench
+| "check-bench"         => helpCheckBench
 | "lint"                => helpLint
 | "check-lint"          => helpCheckLint
 | "clean"               => helpClean

@@ -136,6 +136,25 @@ public configuration PackageConfig (p : Name) (n : Name) extends WorkspaceConfig
   testDriverArgs : Array String := #[]
 
   /--
+  The name of the script, executable, or library used by `lake bench` when
+  this package is the workspace root. To point to a definition in another
+  package, use the syntax `<pkg>/<def>`.
+
+  A script driver will be run by `lake bench` with the arguments
+  configured in `benchDriverArgs` followed by any specified on the CLI
+  (e.g., via `lake bench -- <args>...`). An executable driver will be built
+  and then run like a script. A library will just be built.
+  -/
+  benchDriver : String := ""
+
+  /--
+  Arguments to pass to the package's bench driver.
+  These arguments will come before those passed on the command line via
+  `lake bench -- <args>...`.
+  -/
+  benchDriverArgs : Array String := #[]
+
+  /--
   The name of the script or executable used by `lake lint` when this package
   is the workspace root. To point to a definition in another package, use the
   syntax `<pkg>/<def>`.

@@ -214,16 +214,18 @@ These options configure how code is built and run in the package. Libraries, exe
 * `moreLinkObjs`: An `Array` of `FilePath` [targets](#specifying-targets) producing additional native objects (e.g., static libraries or `.o` object files) to statically link to the library.
 * `moreLinkLibs`: An `Array` of `Dynlib` [targets](#specifying-targets) to dynamically link to the library.
 
-### Test & Lint
+### Test, Bench & Lint
 
-The CLI commands `lake test` and `lake lint` use definitions configured by the workspace's root package to perform testing and linting (this referred to as the test or lint *driver*). In Lean configuration files, these can be specified by applying the `@[test_driver]` or `@[lint_driver]` to a `script`, `lean_exe`, or `lean_lb`. They can also be configured (in Lean or TOML format) via the following options on the package.
+The CLI commands `lake test`, `lake bench`, and `lake lint` use definitions configured by the workspace's root package to perform testing, benchmarking, and linting (this is referred to as the test, bench, or lint *driver*). In Lean configuration files, these can be specified by applying the `@[test_driver]`, `@[bench_driver]`, or `@[lint_driver]` attribute to a `script`, `lean_exe`, or `lean_lib` (for lint, libraries are not allowed). They can also be configured (in Lean or TOML format) via the following options on the package.
 
 * `testDriver`: The name of the script, executable, or library to drive `lake test`.
 * `testDriverArgs`: An `Array` of arguments to pass to the package's test driver.
+* `benchDriver`: The name of the script, executable, or library to drive `lake bench`.
+* `benchDriverArgs`: An `Array` of arguments to pass to the package's bench driver.
 * `lintDriver`: The name of the script or executable used by `lake lint`. Libraries cannot be lint drivers.
 * `lintDriverArgs`: An `Array` of arguments to pass to the package's lint driver.
 
-You can specify definition from a dependency as a package's test or lint driver by using the syntax `<pkg>/<name>`. An executable driver will be built and then run, a script driver will just be run, and a library driver will just be built. A script or executable driver is run with any arguments configured by package (e.g., via `testDriverArgs`) followed by any specified on the CLI (e.g., via `lake lint -- <args>...`).
+You can specify a definition from a dependency as a package's test, bench, or lint driver by using the syntax `<pkg>/<name>`. An executable driver will be built and then run, a script driver will just be run, and a library driver will just be built. A script or executable driver is run with any arguments configured by package (e.g., via `testDriverArgs` or `benchDriverArgs`) followed by any specified on the CLI (e.g., via `lake bench -- <args>...`).
 
 ### Cloud Releases
 

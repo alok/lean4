@@ -149,6 +149,23 @@ public def Package.loadFromEnv
         error s!"{self.prettyName}: cannot both set testDriver and use @[test_driver]"
     else
       pure self.config.testDriver
+  let benchDrivers ← benchDriverAttr.getAllEntries env |>.mapM fun name =>
+    if let some decl := constTargetMap.find? name then
+      pure decl.name
+    else if scripts.contains name then
+      pure name
+    else
+      error s!"{self.prettyName}: package is missing script or target '{name}' marked as a bench driver"
+  let benchDriver ←
+    if benchDrivers.size > 1 then
+      error s!"{self.prettyName}: only one script, executable, or library can be tagged @[bench_driver]"
+    else if h : benchDrivers.size > 0 then
+      if self.config.benchDriver.isEmpty then
+        pure (benchDrivers[0]'h |>.toString)
+      else
+        error s!"{self.prettyName}: cannot both set benchDriver and use @[bench_driver]"
+    else
+      pure self.config.benchDriver
   let lintDrivers ← lintDriverAttr.getAllEntries env |>.mapM fun name =>
     if let some decl := constTargetMap.find? name then
       pure decl.name
@@ -175,7 +192,7 @@ public def Package.loadFromEnv
   return {self with
     depConfigs, targetDecls, targetDeclMap
     defaultTargets, scripts, defaultScripts
-    testDriver, lintDriver,  postUpdateHooks
+    testDriver, benchDriver, lintDriver, postUpdateHooks
   }
 
 /--

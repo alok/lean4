@@ -724,10 +724,23 @@ protected def test : CliM PUnit := do
   let x := ws.root.test opts.subArgs (mkBuildConfig opts)
   exit <| ← x.run (mkLakeContext ws)
 
+protected def bench : CliM PUnit := do
+  processOptions lakeOption
+  let opts ← getThe LakeOptions
+  let ws ← loadWorkspace (← mkLoadConfig opts)
+  noArgsRem do
+  let x := ws.root.bench opts.subArgs (mkBuildConfig opts)
+  exit <| ← x.run (mkLakeContext ws)
+
 protected def checkTest : CliM PUnit := do
   processOptions lakeOption
   let pkg ← loadPackage (← mkLoadConfig (← getThe LakeOptions))
   noArgsRem do exit <| if pkg.testDriver.isEmpty then 1 else 0
+
+protected def checkBench : CliM PUnit := do
+  processOptions lakeOption
+  let pkg ← loadPackage (← mkLoadConfig (← getThe LakeOptions))
+  noArgsRem do exit <| if pkg.benchDriver.isEmpty then 1 else 0
 
 protected def lint : CliM PUnit := do
   processOptions lakeOption
@@ -907,6 +920,8 @@ def lakeCli : (cmd : String) → CliM PUnit
 | "setup-file"          => lake.setupFile
 | "test"                => lake.test
 | "check-test"          => lake.checkTest
+| "bench"               => lake.bench
+| "check-bench"         => lake.checkBench
 | "lint"                => lake.lint
 | "check-lint"          => lake.checkLint
 | "clean"               => lake.clean

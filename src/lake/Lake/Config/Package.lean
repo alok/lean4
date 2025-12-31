@@ -74,6 +74,8 @@ public structure Package where
     if let some n := config.buildArchive then n else defaultBuildArchive baseName
   /-- The driver used for `lake test` when this package is the workspace root. -/
   testDriver : String := config.testDriver
+  /-- The driver used for `lake bench` when this package is the workspace root. -/
+  benchDriver : String := config.benchDriver
   /-- The driver used for `lake lint` when this package is the workspace root. -/
   lintDriver : String := config.lintDriver
   /--
@@ -235,6 +237,10 @@ public def id? (self : Package) : Option PkgId :=
 /-- The package's `testDriverArgs` configuration. -/
 @[inline] public def testDriverArgs (self : Package) : Array String :=
   self.config.testDriverArgs
+
+/-- The package's `benchDriverArgs` configuration. -/
+@[inline] public def benchDriverArgs (self : Package) : Array String :=
+  self.config.benchDriverArgs
 
 /-- The package's `lintDriverArgs` configuration. -/
 @[inline] public def lintDriverArgs (self : Package) : Array String :=

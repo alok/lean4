@@ -550,6 +550,19 @@
                     "default": [],
                     "description": "Arguments to pass to the package's test driver.\nThese arguments will come before those passed on the command line via `lake test -- <args>...`."
                 },
+                "benchDriver": {
+                    "type": "string",
+                    "description": "The name of the script, executable, or library by `lake bench` when this package is the workspace root. To point to a definition in another package, use the syntax `<pkg>/<def>`.\n\nA script driver will be run by `lake bench` with the arguments configured in `benchDriverArgs` followed by any specified on the CLI (e.g., via `lake bench -- <args>...`). An executable driver will be built and then run like a script. A library will just be built."
+                },
+                "benchDriverArgs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "description": "An argument to pass to the package's bench driver."
+                    },
+                    "default": [],
+                    "description": "Arguments to pass to the package's bench driver.\nThese arguments will come before those passed on the command line via `lake bench -- <args>...`."
+                },
                 "lintDriver": {
                     "type": "string",
                     "description": "The name of the script or executable used by `lake lint` when this package is the workspace root. To point to a definition in another package, use the syntax `<pkg>/<def>`.\n\nA script driver will be run by `lake lint` with the arguments configured in `lintDriverArgs` followed by any specified on the CLI (e.g., via  `lake lint -- <args>...`). An executable driver will be built and then run like a script."

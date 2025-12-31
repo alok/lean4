@@ -154,6 +154,7 @@ where
     |>.insert ``targetAttr
     |>.insert ``defaultTargetAttr
     |>.insert ``testDriverAttr
+    |>.insert ``benchDriverAttr
     |>.insert ``lintDriverAttr
     |>.insert ``moduleFacetAttr
     |>.insert ``packageFacetAttr

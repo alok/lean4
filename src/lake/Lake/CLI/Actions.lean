@@ -92,6 +92,28 @@ public def Package.test
   else
     error s!"{pkg.prettyName}: invalid test driver: unknown script, executable, or library '{driver}'"
 
+public def Package.bench
+  (pkg : Package) (args : List String := []) (buildConfig : BuildConfig := {})
+: LakeT IO UInt32 := do
+  let cfgArgs := pkg.benchDriverArgs
+  let (pkg, driver) ← pkg.resolveDriver "bench" pkg.benchDriver
+  if let some script := pkg.scripts.find? driver.toName then
+    script.run (cfgArgs.toList ++ args)
+  else if let some exe := pkg.findLeanExe? driver.toName  then
+    let exeFile ← runBuild exe.fetch buildConfig
+    env exeFile.toString (cfgArgs ++ args.toArray)
+  else if let some lib := pkg.findLeanLib? driver.toName then
+    unless cfgArgs.isEmpty ∧ args.isEmpty do
+      error s!"{pkg.prettyName}: arguments cannot be passed to a library bench driver"
+    match resolveLibTarget (← getWorkspace) lib with
+    | .ok specs =>
+      runBuild (buildSpecs specs) {buildConfig with out := .stdout}
+      return 0
+    | .error e =>
+      error s!"{pkg.prettyName}: invalid bench driver: {e}"
+  else
+    error s!"{pkg.prettyName}: invalid bench driver: unknown script, executable, or library '{driver}'"
+
 public def Package.lint
   (pkg : Package) (args : List String := []) (buildConfig : BuildConfig := {})
 : LakeT IO UInt32 := do
