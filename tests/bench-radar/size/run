@@ -57,12 +57,20 @@ def measure_symbols_for_file(topic: str, path: Path) -> int:
     return count
 
 
+def find_shared_lib(stem: str) -> Path:
+    for ext in (".so", ".dylib"):
+        path = STAGE3_LEAN / f"{stem}{ext}"
+        if path.exists():
+            return path
+    raise FileNotFoundError(f"missing {stem}.so or {stem}.dylib in {STAGE3_LEAN}")
+
+
 if __name__ == "__main__":
-    measure_bytes_for_file("size/libleanshared.so", STAGE3_LEAN / "libleanshared.so")
-    measure_symbols_for_file("size/libleanshared.so", STAGE3_LEAN / "libleanshared.so")
-    measure_symbols_for_file(
-        "size/libLake_shared.so", STAGE3_LEAN / "libLake_shared.so"
-    )
+    leanshared = find_shared_lib("libleanshared")
+    lake_shared = find_shared_lib("libLake_shared")
+    measure_bytes_for_file("size/libleanshared.so", leanshared)
+    measure_symbols_for_file("size/libleanshared.so", leanshared)
+    measure_symbols_for_file("size/libLake_shared.so", lake_shared)
 
     # Stdlib
     measure_lines("size/all/.c", STAGE3_TEMP.glob("**/*.c"))

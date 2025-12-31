@@ -34,3 +34,8 @@ The following metrics are collected individually for each module:
 
 If the file `build_upload_lakeprof_report` is present in the repo root,
 the lakeprof report will be uploaded once the benchmark run concludes.
+
+On systems without `perf`, `tests/bench-radar/measure.py` falls back to
+wall-clock and rusage metrics and skips perf-only counters. If `lakeprof` is not
+installed, `tests/bench-radar/build/run` still runs the build but omits the
+lakeprof-derived metrics.
