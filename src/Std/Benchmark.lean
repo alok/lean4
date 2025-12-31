@@ -203,6 +203,7 @@ def runBench (cfg : Config) (bench : Bench) : IO BenchResult := do
     withProgress cfg label
     discard <| runOnce cfg bench label false
   let mut samples : Array Sample := #[]
+  let benchStart ← IO.monoNanosNow
   let mut elapsed : Float := 0.0
   let mut runs := 0
   let targetRuns :=
@@ -215,7 +216,8 @@ def runBench (cfg : Config) (bench : Bench) : IO BenchResult := do
     let sample ← runOnce cfg bench label
     samples := samples.push sample
     runs := runs + 1
-    elapsed := elapsed + sample.wallSeconds
+    let now ← IO.monoNanosNow
+    elapsed := sampleWallSeconds benchStart now
   if cfg.runs.isNone then
     while elapsed < cfg.minTime && shouldContinue cfg runs elapsed do
       let label := s!"{bench.name} run {runs + 1}"
@@ -223,7 +225,8 @@ def runBench (cfg : Config) (bench : Bench) : IO BenchResult := do
       let sample ← runOnce cfg bench label
       samples := samples.push sample
       runs := runs + 1
-      elapsed := elapsed + sample.wallSeconds
+      let now ← IO.monoNanosNow
+      elapsed := sampleWallSeconds benchStart now
   clearProgress cfg
   bench.afterAll
   let wallStats := statsOf (samples.map (·.wallSeconds))
