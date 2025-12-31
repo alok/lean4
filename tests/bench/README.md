@@ -23,6 +23,16 @@ To execute the suite and save the results in `base.yaml`, run (in this folder)
 ```
 temci exec --config speedcenter.yaml --out base.yaml
 ```
+On macOS (or other systems without `perf`), use the time-based config:
+```
+uv run --with temci --with scipy -- temci exec --config speedcenter.macos.yaml --out base.yaml
+```
+This uses `tests/bench/speedcenter.exec.macos.yaml`, which avoids `perf` and
+allows `ulimit -s unlimited` to fail without aborting the run. The macOS config
+uses the `rusage` runner, so run `uv run --with temci --with scipy -- temci setup`
+once to build the helper binary.
+For a quick sanity check on macOS, you can use `speedcenter.macos.smoke.yaml`,
+which benchmarks just `Init.Prelude`.
 Other interesting `exec` flags:
 * use `--runs N` to modify the default number of 10 runs per benchmark
 * use `--included_blocks fast` to excluded slow benchmarks like the stdlib
