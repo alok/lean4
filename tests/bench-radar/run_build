@@ -6,3 +6,6 @@ tests/bench-radar/build/run
 
 echo "Running benchmark: size"
 tests/bench-radar/size/run
+
+echo "Running benchmark: benchlib"
+tests/bench-radar/benchlib/run

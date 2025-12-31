@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(pwd)"
+LEAN_BIN="$ROOT/build/release/stage1/bin/lean"
+if [ ! -x "$LEAN_BIN" ]; then
+  LEAN_BIN="$ROOT/build/release/stage0/bin/lean"
+fi
+if [ ! -x "$LEAN_BIN" ]; then
+  LEAN_BIN="$ROOT/build/release/stage2/bin/lean"
+fi
+if [ ! -x "$LEAN_BIN" ]; then
+  LEAN_BIN="$ROOT/build/release/stage3/bin/lean"
+fi
+if [ ! -x "$LEAN_BIN" ]; then
+  LEAN_BIN="lean"
+fi
+
+"$LEAN_BIN" --run "$ROOT/tests/bench-radar/benchlib/bench.lean" -- \
+  --format radar \
+  --radar-topic benchlib \
+  --min-runs 10 \
+  --warmup 2 \
+  --no-progress
