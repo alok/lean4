@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(pwd)"
+BENCH_ROOT="$ROOT/tests/bench-radar"
+RADAR_JSONL="${RADAR_JSONL:-}"
+
+run_bench() {
+  local bench="$1"
+  "$BENCH_ROOT/$bench/run"
+}
+
+if [ -n "$RADAR_JSONL" ]; then
+  : > "$RADAR_JSONL"
+  for bench in benchlib build size; do
+    run_bench "$bench" | tee -a "$RADAR_JSONL"
+  done
+else
+  for bench in benchlib build size; do
+    run_bench "$bench"
+  done
+fi

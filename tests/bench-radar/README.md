@@ -3,7 +3,9 @@
 This directory contains the new Lean 4 benchmark suite.
 It is built around [radar](github.com/leanprover/radar)
 and benchmark results can be viewed on the [Lean FRO radar instance](https://radar.lean-lang.org/repos/lean4).
-To run the entire benchmark suite, execute the script called `run`.
+To run the entire benchmark suite, execute the script called `run`. Set the
+`RADAR_JSONL` environment variable to capture results into a JSON Lines file
+while still printing measurements to stdout.
 
 Benchmarks are organized into subdirectories.
 Each benchmark directory must contain a script called `run` that executes the benchmark,
