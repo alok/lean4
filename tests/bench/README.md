@@ -31,6 +31,8 @@ This uses `tests/bench/speedcenter.exec.macos.yaml`, which avoids `perf` and
 allows `ulimit -s unlimited` to fail without aborting the run. The macOS config
 uses the `rusage` runner, so run `uv run --with temci --with scipy -- temci setup`
 once to build the helper binary.
+The macOS config also skips Linux-only re-elab RSS benchmarks and reduces the
+`const_fold` workload to avoid stack-limit failures when `ulimit` cannot be raised.
 For a quick sanity check on macOS, you can use `speedcenter.macos.smoke.yaml`,
 which benchmarks just `Init.Prelude`.
 Other interesting `exec` flags:

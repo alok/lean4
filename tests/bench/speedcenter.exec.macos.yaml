@@ -37,43 +37,6 @@
     cwd: ../../src
     cmd: lean Init/Data/BitVec/Lemmas.lean
 - attributes:
-    description: Init.Data.List.Sublist re-elab -j4
-    tags: [other]
-  run_config:
-    <<: *time
-    cwd: ../../src
-    cmd: lean --run ../script/benchReelabRss.lean lean Init/Data/List/Sublist.lean 10 -j4
-    max_runs: 2
-    parse_output: true
-- attributes:
-    description: Init.Data.BitVec.Lemmas re-elab
-    tags: [other]
-  run_config:
-    <<: *time
-    cwd: ../../src
-    cmd: lean --run ../script/benchReelabRss.lean lean Init/Data/BitVec/Lemmas.lean 3 -j4
-    max_runs: 2
-    parse_output: true
-- attributes:
-    description: Init.Data.List.Sublist re-elab -j4 (watchdog rss)
-    tags: [other]
-  run_config:
-    <<: *time
-    cwd: ../../src
-    cmd: lean --run ../script/benchReelabWatchdogRss.lean lean Init/Data/List/Sublist.lean 10 -j4
-    max_runs: 2
-    parse_output: true
-# This benchmark uncovered the promise cycle in `realizeConst` (#11328)
-- attributes:
-    description: Init.Data.List.Basic re-elab
-    tags: [other]
-  run_config:
-    <<: *time
-    cwd: ../../src
-    cmd: lean --run ../script/benchReelabRss.lean lean Init/Data/List/Basic.lean 10 -j4
-    max_runs: 2
-    parse_output: true
-- attributes:
     description: import Lean
     tags: [other]
   run_config:
@@ -87,9 +50,13 @@
     cwd: ../compiler/
     cmd: |
       set -eu
-      for f in *.lean; do ../bench/compile.sh $f > /dev/null; done
-      printf 'sum binary sizes: '
-      for f in *.lean; do printf '%s\0' "$f.out"; done | wc -c --files0-from=- | tail -1 | cut -d' ' -f 1
+      for f in *.lean; do ../bench/compile.sh "$f" > /dev/null; done
+      total=0
+      for f in *.lean; do
+        size=$(stat -f%z "$f.out")
+        total=$((total + size))
+      done
+      printf 'sum binary sizes: %s\n' "$total"
     max_runs: 1
     runner: output
 - attributes:
@@ -102,6 +69,9 @@
       set -euxo pipefail
       ulimit -s unlimited || true
       for f in *.args; do
+        if [ "$f" = "const_fold.lean.args" ]; then
+          continue
+        fi
         lean --run ${f%.args} $(cat $f)
       done
       '
@@ -127,7 +97,7 @@
     tags: [other]
   run_config:
     <<: *time
-    cmd: bash -c "ulimit -s unlimited || true && ./const_fold.lean.out 23"
+    cmd: bash -c "ulimit -s unlimited || true && ./const_fold.lean.out 16"
   build_config:
     cmd: ./compile.sh const_fold.lean
 - attributes:
@@ -275,7 +245,6 @@
   run_config:
     <<: *time
     cmd: ./ilean_roundtrip.lean.out 200000
-    parse_output: true
   build_config:
     cmd: ./compile.sh ilean_roundtrip.lean
 - attributes:
@@ -284,7 +253,6 @@
   run_config:
     <<: *time
     cmd: lean -Dlinter.all=false --run identifier_completion_runner.lean
-    parse_output: true
 - attributes:
     description: liasolver
     tags: [other]
@@ -538,7 +506,6 @@
   run_config:
     <<: *time
     cmd: ./channel.lean.out
-    parse_output: true
   build_config:
     cmd: ./compile.sh channel.lean
 - attributes:
@@ -590,7 +557,6 @@
   run_config:
     <<: *time
     cmd: ./hashmap.lean.out 11 10000
-    parse_output: true
   build_config:
     cmd: ./compile.sh hashmap.lean
 - attributes:
@@ -599,7 +565,6 @@
   run_config:
     <<: *time
     cmd: ./treemap.lean.out 11 10000
-    parse_output: true
   build_config:
     cmd: ./compile.sh treemap.lean
 - attributes:
@@ -608,7 +573,6 @@
   run_config:
     <<: *time
     cmd: ./phashmap.lean.out 11 10000
-    parse_output: true
   build_config:
     cmd: ./compile.sh phashmap.lean
 - attributes:
