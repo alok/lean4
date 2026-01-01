@@ -29,7 +29,7 @@ def _root_.Lean.Expr.isAny (e : Expr) :=
 
 def isPropFormerTypeQuick : Expr → Bool
   | .forallE _ _ b _ => isPropFormerTypeQuick b
-  | .sort .zero => true
+  | .sort .zero _ => true
   | _ => false
 
 /--
@@ -42,12 +42,12 @@ partial def isPropFormerType (type : Expr) : MetaM Bool := do
 where
   go (type : Expr) (xs : Array Expr) : MetaM Bool := do
     match type with
-    | .sort .zero => return true
+    | .sort .zero _ => return true
     | .forallE n d b c => Meta.withLocalDecl n c (d.instantiateRev xs) fun x => go b (xs.push x)
     | _ =>
       let type ← Meta.whnfD (type.instantiateRev xs)
       match type with
-      | .sort .zero => return true
+      | .sort .zero _ => return true
       | .forallE .. => go type #[]
       | _ => return false
 
@@ -168,7 +168,7 @@ where
       return erasedExpr
     let type ← whnfEta type
     match type with
-    | .sort u     => return .sort u
+    | .sort u h   => return .sort u h
     | .const ..   => visitApp type #[]
     | .lam n d b bi =>
       withLocalDecl n bi d fun x => do
@@ -303,7 +303,7 @@ Examples: `Nat → Prop`, `Prop`, `Int → Bool → Prop`.
 -/
 partial def isPredicateType (type : Expr) : Bool :=
   match type.headBeta with
-  | .sort .zero => true
+  | .sort .zero _ => true
   | .forallE _ _ b _ => isPredicateType b
   | _ => false
 

@@ -316,7 +316,7 @@ partial def casesThunkToMono (c : Cases) (_ : c.typeName == ``Thunk) : ToMonoM C
   let p := ps[0]!
   let letValue := .const ``Thunk.get [] #[.erased, .fvar c.discr]
   let letDecl ← mkLetDecl (← mkFreshBinderName `_x) anyExpr letValue
-  let paramType := .const `PUnit []
+  let paramType := .const `PUnit [levelZero, levelZero]
   let decl := {
     fvarId := p.fvarId
     binderName := p.binderName

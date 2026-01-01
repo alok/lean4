@@ -56,7 +56,7 @@ partial def toMonoType (type : Expr) : CoreM Expr := do
     | _ =>
       -- preserve parameter names for readability and to avoid recompilation from signature changes
       return .forallE n (← toMonoType d) monoB bi
-  | .sort _ => return erasedExpr
+  | .sort _ _ => return erasedExpr
   | .mdata d b => return .mdata d (← toMonoType b)
   | _ => return anyExpr
 where
@@ -76,7 +76,7 @@ where
         for arg in args do
           let .forallE _ d b _ := type.headBeta | unreachable!
           let arg := arg.headBeta
-          if d matches .const ``lcErased _ | .sort _ then
+          if d matches .const ``lcErased _ | .sort _ _ then
             result := mkApp result (← toMonoType arg)
           else
             result := mkApp result anyExpr

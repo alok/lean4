@@ -125,7 +125,7 @@ mutual
     | .const c us    => inferConstType c us
     | .app ..        => inferAppType e
     | .fvar fvarId   => InferType.getType fvarId
-    | .sort lvl      => return .sort (mkLevelSucc lvl)
+    | .sort lvl h    => return .sort (mkLevelSucc lvl) h
     | .forallE ..    => inferForallType e
     | .lam ..        => inferLambdaType e
     | .letE .. | .mvar .. | .mdata .. | .lit .. | .bvar .. | .proj .. => unreachable!
@@ -200,9 +200,9 @@ mutual
             if ctorType.isErased then return erasedExpr
             failed ()
 
-  partial def getLevel? (type : Expr) : InferTypeM (Option Level) := do
+  partial def getSortLevels? (type : Expr) : InferTypeM (Option (Level × Level)) := do
     match (← inferType type) with
-    | .sort u => return some u
+    | .sort u h => return some (u, h)
     | _ => return none
 
   partial def inferForallType (e : Expr) : InferTypeM Expr :=
@@ -215,13 +215,15 @@ mutual
           go b (fvars.push fvar)
       | _ =>
         let e := e.instantiateRev fvars
-        let some u ← getLevel? e | return erasedExpr
+        let some (u, h) ← getSortLevels? e | return erasedExpr
         let mut u := u
+        let mut h := h
         for x in fvars.reverse do
           let xType ← inferType x
-          let some v ← getLevel? xType | return erasedExpr
+          let some (v, hv) ← getSortLevels? xType | return erasedExpr
           u := mkLevelIMax' v u
-        return .sort u.normalize
+          h := mkLevelMax hv h
+        return .sort u.normalize h.normalize
 
   partial def inferLambdaType (e : Expr) : InferTypeM Expr :=
     go e #[] #[]
@@ -247,7 +249,7 @@ def inferAppType (fnType : Expr) (args : Array Arg) : CompilerM Expr :=
 
 def getLevel (type : Expr) : CompilerM Level := do
   match (← inferType type) with
-  | .sort u => return u
+  | .sort u _ => return u
   | e => if e.isErased then return levelOne else throwError "type expected{indentExpr type}"
 
 def Arg.inferType (arg : Arg) : CompilerM Expr :=
@@ -343,7 +345,7 @@ partial def eqvTypes (a b : Expr) : Bool :=
       | .app f a, .app g b => eqvTypes f g && eqvTypes a b
       | .forallE _ d₁ b₁ _, .forallE _ d₂ b₂ _ => eqvTypes d₁ d₂ && eqvTypes b₁ b₂
       | .lam _ d₁ b₁ _, .lam _ d₂ b₂ _ => eqvTypes d₁ d₂ && eqvTypes b₁ b₂
-      | .sort u, .sort v => Level.isEquiv u v
+      | .sort u hu, .sort v hv => Level.isEquiv u v && Level.isEquiv hu hv
       | .const n us, .const m vs => n == m && List.isEqv us vs Level.isEquiv
       | _, _ => false
 

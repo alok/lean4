@@ -275,7 +275,7 @@ where
   | .forallE _ _ b _ => quick env b
   | .mdata _ b => quick env b
   | .letE .. => .undef
-  | .sort _ => .true
+  | .sort _ _ => .true
   | .bvar .. => .false
   | type =>
     match type.getAppFn with

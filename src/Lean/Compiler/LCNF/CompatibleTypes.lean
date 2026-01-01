@@ -68,7 +68,7 @@ partial def compatibleTypesQuick (a b : Expr) : Bool :=
       | .app f a, .app g b => compatibleTypesQuick f g && compatibleTypesQuick a b
       | .forallE _ d₁ b₁ _, .forallE _ d₂ b₂ _ => compatibleTypesQuick d₁ d₂ && compatibleTypesQuick b₁ b₂
       | .lam _ d₁ b₁ _, .lam _ d₂ b₂ _ => compatibleTypesQuick d₁ d₂ && compatibleTypesQuick b₁ b₂
-      | .sort u, .sort v => Level.isEquiv u v
+      | .sort u hu, .sort v hv => Level.isEquiv u v && Level.isEquiv hu hv
       | .const n us, .const m vs => n == m && List.isEqv us vs Level.isEquiv
       | _, _ => false
 
@@ -98,7 +98,7 @@ partial def InferType.compatibleTypesFull (a b : Expr) : InferTypeM Bool := do
         unless (← compatibleTypesFull d₁ d₂) do return false
         withLocalDecl n d₁ bi fun x =>
           compatibleTypesFull (b₁.instantiate1 x) (b₂.instantiate1 x)
-      | .sort u, .sort v => return Level.isEquiv u v
+      | .sort u hu, .sort v hv => return Level.isEquiv u v && Level.isEquiv hu hv
       | .const n us, .const m vs => return n == m && List.isEqv us vs Level.isEquiv
       | .mdata _ e, _ => compatibleTypesFull e b
       | _, .mdata _ e => compatibleTypesFull a e
