@@ -82,8 +82,8 @@ def mkConstS (declName : Name) (us : List Level := []) : m Expr :=
 def mkBVarS (idx : Nat) : m Expr :=
   share <| .bvar idx
 
-def mkSortS (u : Level) : m Expr :=
-  share <| .sort u
+def mkSortS (u : Level) (h : Level := levelZero) : m Expr :=
+  share <| .sort u h
 
 def mkFVarS (fvarId : FVarId) : m Expr :=
   share <| .fvar fvarId

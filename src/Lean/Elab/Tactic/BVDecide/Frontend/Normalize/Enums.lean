@@ -238,7 +238,7 @@ where
     let levelParams := levelParamNames.map mkLevelParam
     let .forallE _ (.forallE _ discrType ..) .. := matchConstInfo.type | unreachable!
     let (type, value) ←
-      withLocalDeclD `a (.sort u) fun a => do
+      withLocalDeclD `a (mkSort u) fun a => do
       withLocalDeclD `x discrType  fun x => do
         let hType ← mkArrow (mkConst ``Unit) a
         let hBinders := ctors.foldl (init := #[]) (fun acc _ => acc.push (`h, hType))
@@ -278,7 +278,7 @@ where
     let levelParams := levelParamNames.map mkLevelParam
     let .forallE _ (.forallE _ discrType ..) .. := matchConstInfo.type | unreachable!
     let (type, value) ←
-      withLocalDeclD `a (.sort u) fun a => do
+      withLocalDeclD `a (mkSort u) fun a => do
       withLocalDeclD `x discrType fun x => do
         let hType ← mkArrow (mkConst ``Unit) a
         let mut hBinders := ctors.foldl (init := #[]) (fun acc _ => acc.push (`h, hType))

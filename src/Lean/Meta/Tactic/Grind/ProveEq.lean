@@ -131,7 +131,7 @@ where
         }
         return mkBVar varIdx
     match lhs with
-    | .lit _ | .sort _ | .mvar _ | .fvar _
+    | .lit _ | .sort _ _ | .mvar _ | .fvar _
     | .bvar _ | .const .. => failure
     | .mdata d₁ b₁ =>
       let .mdata _ b₂ := rhs | failure

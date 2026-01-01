@@ -98,7 +98,7 @@ private def discharge? (e : Expr) : SimpM (Option Expr) := do
   let e := e.cleanupAnnotations
   let r ← Simp.simp e
   if let some p ← Simp.dischargeRfl r.expr then
-    return some (mkApp4 (mkConst ``Eq.mpr [levelZero]) e r.expr (← r.getProof) p)
+    return some (mkApp4 (mkConst ``Eq.mpr [levelZero, levelZero]) e r.expr (← r.getProof) p)
   else if r.expr.isTrue then
     return some (← mkOfEqTrue (← r.getProof))
   else
@@ -273,7 +273,7 @@ where
           let r ← preprocessHypothesis type
           match r.proof? with
           | none => add r.expr localDecl.toExpr
-          | some h => add r.expr <| mkApp4 (mkConst ``Eq.mp [0]) type r.expr h localDecl.toExpr
+          | some h => add r.expr <| mkApp4 (mkConst ``Eq.mp [0, levelZero]) type r.expr h localDecl.toExpr
         else
           internalizeLocalDecl localDecl
     setNextDeclToEnd -- Processed all local decls

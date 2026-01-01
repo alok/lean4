@@ -147,7 +147,7 @@ private def mkSubNat (x y : Expr) : Expr :=
   mkAppN (mkConst ``HSub.hSub [lz, lz, lz]) #[nat, nat, nat, instHSub, x, y]
 
 private def mkEqNat (x y : Expr) : Expr :=
-  mkAppN (mkConst ``Eq [levelOne]) #[mkConst ``Nat, x, y]
+  mkAppN (mkConst ``Eq [levelOne, levelZero]) #[mkConst ``Nat, x, y]
 
 private def mkBEqNatInstance : Expr :=
   mkAppN (mkConst ``instBEqOfDecidableEq [levelZero]) #[mkConst ``Nat, mkConst ``instDecidableEqNat []]

@@ -133,15 +133,19 @@ def optSemicolon (p : Parser) : Parser :=
   checkPrec maxPrec >> charLit
 /-- A type universe. `Type ≡ Type 0`, `Type u ≡ Sort (u + 1)`. -/
 @[builtin_term_parser] def type := leading_parser
-  "Type" >> optional (checkWsBefore "" >> checkPrec leadPrec >> checkColGt >> levelParser maxPrec)
+  "Type"
+    >> optional (checkWsBefore "" >> checkPrec leadPrec >> checkColGt >> levelParser maxPrec)
+    >> optional (ppSpace >> "@" >> checkPrec leadPrec >> checkColGt >> levelParser maxPrec)
 /-- A specific universe in Lean's infinite hierarchy of universes. -/
 @[builtin_term_parser] def sort := leading_parser
-  "Sort" >> optional (checkWsBefore "" >> checkPrec leadPrec >> checkColGt >> levelParser maxPrec)
+  "Sort"
+    >> optional (checkWsBefore "" >> checkPrec leadPrec >> checkColGt >> levelParser maxPrec)
+    >> optional (ppSpace >> "@" >> checkPrec leadPrec >> checkColGt >> levelParser maxPrec)
 /-- The universe of propositions. `Prop ≡ Sort 0`.
 
 Every proposition is propositionally equal to either `True` or `False`. -/
 @[builtin_term_parser] def prop := leading_parser
-  "Prop"
+  "Prop" >> optional (ppSpace >> "@" >> checkPrec leadPrec >> checkColGt >> levelParser maxPrec)
 
 
 /--

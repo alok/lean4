@@ -922,7 +922,7 @@ def exposeLevelMVars (e : Expr) : MetaM Expr :=
     (post := fun e => do
       match e with
       | .const _ us     => return .done <| if us.any (·.isMVar) then e.setPPUniverses true else e
-      | .sort u         => return .done <| if u.isMVar then e.setPPUniverses true else e
+      | .sort u h       => return .done <| if u.isMVar || h.isMVar then e.setPPUniverses true else e
       | .lam _ t _ _    => return .done <| if t.hasLevelMVar then e.setOption `pp.funBinderTypes true else e
       | .letE _ t _ _ _ => return .done <| if t.hasLevelMVar then e.setOption `pp.letVarTypes true else e
       | _               => return .done e)
@@ -1859,7 +1859,8 @@ def ensureType (e : Expr) : TermElabM Expr := do
   else
     let eType ← inferType e
     let u ← mkFreshLevelMVar
-    if (← isDefEq eType (mkSort u)) then
+    let h ← mkFreshLevelMVar
+    if (← isDefEq eType (mkSortH u h)) then
       return e
     else if let some coerced ← coerceToSort? e then
       return coerced
@@ -1871,7 +1872,8 @@ def ensureType (e : Expr) : TermElabM Expr := do
 /-- Elaborate `stx` and ensure result is a type. -/
 def elabType (stx : Syntax) : TermElabM Expr := do
   let u ← mkFreshLevelMVar
-  let type ← elabTerm stx (mkSort u)
+  let h ← mkFreshLevelMVar
+  let type ← elabTerm stx (mkSortH u h)
   withRef stx <| ensureType type
 
 /--

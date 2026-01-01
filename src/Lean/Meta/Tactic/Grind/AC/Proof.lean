@@ -279,7 +279,8 @@ def propagateEq (a b : Expr) (ea eb : AC.Expr) (ca cb : EqCnstr) : ACM Unit := d
     let h ← mkPrefix ``AC.imp_eq
     return mkApp5 h (← mkExprDecl ea) (← mkExprDecl eb) (← mkSeqDecl ca.rhs) h₁ h₂
   let s ← getStruct
-  let eq := mkApp3 (mkConst ``Eq [s.u]) s.type a b
+  let hlevel ← getHLevel s.type
+  let eq := mkApp3 (mkConst ``Eq [s.u, hlevel]) s.type a b
   pushEq a b <| mkExpectedPropHint h eq
 
 end Lean.Meta.Grind.AC

@@ -100,7 +100,10 @@ private partial def ensureNoUnassignedLevelMVarsAtPreDef (preDef : PreDefinition
             | .letE n t v b nondep => withExpr e do visit t; visit v; withLetDecl n t v (nondep := nondep) fun x => visit (b.instantiate1 x)
             | .mdata _ b     => withExpr e do visit b
             | .proj _ _ b    => withExpr e do visit b
-            | .sort u        => visitLevel u (← read)
+            | .sort u h      =>
+              let e := (← read)
+              liftM <| visitLevel u e
+              liftM <| visitLevel h e
             | .const _ us    => (if head then id else withExpr e) <| us.forM (visitLevel · (← read))
             | .app ..        => withExpr e do e.withApp fun f args => do visit f true; args.forM visit
             | _              => pure ()

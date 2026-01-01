@@ -32,7 +32,7 @@ def mkProdN (ts : Array Expr) : MetaM Expr := do
     return tupleTy
   else
     let u ← mkFreshLevelMVar
-    return mkConst ``PUnit [u]
+    return mkConst ``PUnit [u, levelZero]
 
 /--
 Given expressions `eᵢ`, return the tuple `(e₁, e₂, …, eₙ)` and its type `t₁ × t₂ × … × tₙ`.
@@ -55,7 +55,7 @@ def mkProdMkN (es : Array Expr) : MetaM (Expr × Expr) := do
     return (tuple, tupleTy)
   else
     let u ← mkFreshLevelMVar
-    return (mkConst ``PUnit.unit [u], mkConst ``PUnit [u])
+    return (mkConst ``PUnit.unit [u, levelZero], mkConst ``PUnit [u, levelZero])
 
 /-- Given a product `(e₁, e₂)` of type `t₁ × t₂`, return `(e₁, t₁, e₂, t₂)`. -/
 def getProdFields (tuple tupleTy : Expr) : MetaM (Expr × Expr × Expr × Expr) := do

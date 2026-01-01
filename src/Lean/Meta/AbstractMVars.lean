@@ -78,7 +78,13 @@ partial def abstractExprMVars (e : Expr) : M Expr := do
     | e@(Expr.lit _)           => return e
     | e@(Expr.bvar _)          => return e
     | e@(Expr.fvar _)          => return e
-    | e@(Expr.sort u)          => return e.updateSort! (← abstractLevelMVars u)
+    | e@(Expr.sort u h)        =>
+      let u' ← abstractLevelMVars u
+      let h' ← abstractLevelMVars h
+      if u == u' && h == h' then
+        return e
+      else
+        return mkSortH u' h'
     | e@(Expr.const _ us)      => return e.updateConst! (← us.mapM abstractLevelMVars)
     | e@(Expr.proj _ _ s)      => return e.updateProj! (← abstractExprMVars s)
     | e@(Expr.app f a)         => return e.updateApp! (← abstractExprMVars f) (← abstractExprMVars a)

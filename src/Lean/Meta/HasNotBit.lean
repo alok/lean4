@@ -33,7 +33,7 @@ public def mkHasNotBitProof (e : Expr) (ns : Array Nat) : MetaM Expr := do
   -/
   let some (_, lhs, rhs) ← matchNe? (mkHasNotBit e ns) | unreachable!
   return mkApp3 (mkConst ``Nat.ne_of_beq_eq_false)
-    lhs rhs (mkApp2 (mkConst ``Eq.refl [1]) (mkConst ``Bool) (mkConst ``Bool.false))
+    lhs rhs (mkApp2 (mkConst ``Eq.refl [1, 0]) (mkConst ``Bool) (mkConst ``Bool.false))
 
 public def isHasNotBit? (e : Expr) : Option Expr :=
   match_expr e with

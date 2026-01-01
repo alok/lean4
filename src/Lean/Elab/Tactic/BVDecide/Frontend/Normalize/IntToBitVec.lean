@@ -124,7 +124,7 @@ where
         -/
         let (motive, newGoalType) ←
           withLocalDeclD `z (mkConst ``Nat) fun z => do
-            let otherArgType := mkApp3 (mkConst ``Eq [1]) (mkConst ``Nat) (toExpr numBits) z
+            let otherArgType := mkApp3 (mkConst ``Eq [1, 0]) (mkConst ``Nat) (toExpr numBits) z
             withLocalDeclD `h otherArgType fun other => do
               let argType := mkApp (mkConst ``BitVec) z
               let argTypes := relevantTerms.map (fun _ => (`x, argType))
@@ -136,11 +136,15 @@ where
                     subst := subst.insert term arg
                   let motiveType := targetType.replace subst.get?
                   mkForallFVars args motiveType
+              let uElim ← getLevel innerMotiveType
+              let hElim ← getHLevel innerMotiveType
               let newGoalType := innerMotiveType.replaceFVar z (toExpr numBits)
               let motive ← mkLambdaFVars #[z, other] innerMotiveType
               return (motive, newGoalType)
         let mut newGoal := (← mkFreshExprMVar newGoalType).mvarId!
-        let casesOn := mkApp6 (mkConst ``Eq.casesOn [0, 1])
+        let uInd ← getLevel (mkConst ``Nat)
+        let hInd ← getHLevel (mkConst ``Nat)
+        let casesOn := mkApp6 (mkConst ``Eq.casesOn [uElim, hElim, uInd, hInd])
           (mkConst ``Nat)
           (toExpr numBits)
           motive
@@ -169,7 +173,7 @@ where
         | Eq eqTyp lhs rhs =>
           if lhs.isConstOf ``System.Platform.numBits then
             let some val ← getNatValue? rhs | return none
-            return some (val, mkApp4 (mkConst ``Eq.symm [1]) eqTyp lhs rhs (mkFVar hyp))
+            return some (val, mkApp4 (mkConst ``Eq.symm [1, 0]) eqTyp lhs rhs (mkFVar hyp))
           else if rhs.isConstOf ``System.Platform.numBits then
             let some val ← getNatValue? lhs | return none
             return some (val, mkFVar hyp)

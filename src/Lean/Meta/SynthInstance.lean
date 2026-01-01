@@ -134,7 +134,13 @@ partial def normExpr (e : Expr) : M Expr := do
     pure e
   else match e with
     | .const _ us      => return e.updateConst! (← us.mapM normLevel)
-    | .sort u          => return e.updateSort! (← normLevel u)
+    | .sort u h        =>
+      let u' ← normLevel u
+      let h' ← normLevel h
+      if u == u' && h == h' then
+        return e
+      else
+        return mkSortH u' h'
     | .app f a         => return e.updateApp! (← normExpr f) (← normExpr a)
     | .letE _ t v b _  => return e.updateLetE! (← normExpr t) (← normExpr v) (← normExpr b)
     | .forallE _ d b _ => return e.updateForallE! (← normExpr d) (← normExpr b)

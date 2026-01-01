@@ -104,11 +104,11 @@ def mkMatchArgPusher (matcherName : Name) (matcherInfo : MatcherInfo) : MetaM Na
       let motive' := xs[matcherInfo.numParams]!
       let u ← mkFreshUserName `u
       let v ← mkFreshUserName `v
-      withLocalDeclD `α (.sort (.param u)) fun alpha => do
-      withLocalDeclD `β (← mkArrow alpha (.sort (.param v))) fun beta => do
+      withLocalDeclD `α (mkSort (.param u)) fun alpha => do
+      withLocalDeclD `β (← mkArrow alpha (mkSort (.param v))) fun beta => do
       withLocalDeclD `f (.forallE `x alpha (mkApp beta (.bvar 0)) .default) fun f => do
       let relType ← forallTelescope (← inferType motive') fun xs _ =>
-        mkForallFVars xs (.forallE `x alpha (.sort 0) .default)
+        mkForallFVars xs (.forallE `x alpha (mkSort 0) .default)
       withLocalDeclD `rel relType fun rel => do
       let motive ← forallTelescope (← inferType motive') fun xs _ => do
         let motiveBody := mkAppN motive' xs

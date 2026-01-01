@@ -11,6 +11,7 @@ public import Lean.Meta.Basic
 import Lean.AddDecl
 import Lean.Meta.AppBuilder
 import Lean.Meta.CompletionName
+import Lean.Meta.Constructions.RecursorLevels
 import Lean.Linter.Deprecated
 
 open Lean Meta
@@ -52,7 +53,9 @@ public def mkCtorIdx (indName : Name) : MetaM Unit :=
     let casesOnInfo ← getConstInfo casesOnName
     unless casesOnInfo.levelParams.length > info.levelParams.length do return
 
-    let us := info.levelParams.map mkLevelParam
+    let hlevel := info.type.getForallBody.sortHLevel!
+    let recLevels := getRecursorLevels casesOnInfo.levelParams info.levelParams hlevel
+    let us := recLevels.indLevels
     forallBoundedTelescope info.type (info.numParams + info.numIndices) fun xs _ => do
     withImplicitBinderInfos xs do
       let params : Array Expr := xs[:info.numParams]
@@ -66,7 +69,11 @@ public def mkCtorIdx (indName : Name) : MetaM Unit :=
           pure (mkRawNatLit 0)
         else
           let motive ← mkLambdaFVars (indices.push x) natType
-          let mut value := mkConst casesOnName (levelOne::us)
+          let casesOnLevels := match recLevels.extra with
+            | 0 => us
+            | 1 => levelOne :: us
+            | _ => levelOne :: levelZero :: us
+          let mut value := mkConst casesOnName casesOnLevels
           value := mkAppN value params
           value := mkApp value motive
           value := mkAppN value indices

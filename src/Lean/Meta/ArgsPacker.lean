@@ -317,7 +317,7 @@ def mkCodomain (types : Array Expr) (x : Expr) : MetaM Expr := do
       let xTypeArgs := xType.getAppArgs
       let casesOn := mkConst ``PSum.casesOn (mkLevelSucc u :: xType.getAppFn.constLevels!)
       let casesOn := mkAppN casesOn xTypeArgs -- parameters
-      let casesOn := mkApp casesOn (← mkLambdaFVars #[x] (mkSort u)) -- motive
+      let casesOn := mkApp casesOn (← mkLambdaFVars #[x] (mkSortH u h)) -- motive
       let casesOn := mkApp casesOn x -- major
       let minor1 ← withLocalDeclD (← mkFreshUserName `_x) xTypeArgs[0]! fun x => do
         mkLambdaFVars #[x] (types[i]!.bindingBody!.instantiate1 x)
@@ -397,7 +397,7 @@ private def casesOn (x : Expr) (codomain : Expr) (alts : List Expr) : MetaM Expr
         withLocalDeclD (← mkFreshUserName `_x) b fun y => do
           let codomain' := motive.beta #[mkApp3 (.const ``PSum.inr us) a b y]
           mkLambdaFVars #[y] (← casesOn y codomain' alts)
-      return mkApp6 (.const ``PSum.casesOn (u::us)) a b motive x alt₁ alt₂
+      return mkApp6 (.const ``PSum.casesOn (u :: us)) a b motive x alt₁ alt₂
     | _ => throwError "Mutual.casesOn: Expected PSum type, got {t}"
 
 /--

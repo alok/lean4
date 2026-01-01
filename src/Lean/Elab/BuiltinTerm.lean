@@ -19,20 +19,29 @@ public section
 namespace Lean.Elab.Term
 open Meta
 
-@[builtin_term_elab «prop»] def elabProp : TermElab := fun _ _ =>
-  return mkSort levelZero
-
 private def elabOptLevel (stx : Syntax) : TermElabM Level :=
   if stx.isNone then
     pure levelZero
   else
     elabLevel stx[0]
 
+private def elabOptHLevel (stx : Syntax) : TermElabM Level :=
+  if stx.isNone then
+    pure levelZero
+  else
+    -- The optional "@" parser keeps the token in the syntax tree, so the
+    -- level is the last child (either the only one, or after the "@").
+    let i := stx.getNumArgs - 1
+    elabLevel (stx.getArg i)
+
+@[builtin_term_elab «prop»] def elabProp : TermElab := fun stx _ =>
+  return mkSortH levelZero (← elabOptHLevel stx[1])
+
 @[builtin_term_elab «sort»] def elabSort : TermElab := fun stx _ =>
-  return mkSort (← elabOptLevel stx[1])
+  return mkSortH (← elabOptLevel stx[1]) (← elabOptHLevel stx[2])
 
 @[builtin_term_elab «type»] def elabTypeStx : TermElab := fun stx _ =>
-  return mkSort (mkLevelSucc (← elabOptLevel stx[1]))
+  return mkSortH (mkLevelSucc (← elabOptLevel stx[1])) (← elabOptHLevel stx[2])
 
 /-!
  the method `resolveName` adds a completion point for it using the given

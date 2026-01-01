@@ -47,7 +47,8 @@ where
 
 private def mkEq (a b : Expr) : M Expr := do
   let s ← getStruct
-  return mkApp3 (mkConst ``Eq [s.u.succ]) s.type a b
+  let hlevel ← getHLevel s.type
+  return mkApp3 (mkConst ``Eq [s.u.succ, hlevel]) s.type a b
 
 def DiseqCnstr.denoteExpr (c : DiseqCnstr) : M Expr := do
   return mkNot (← mkEq (← c.p.denoteExpr) (← getStruct).ofNatZero)

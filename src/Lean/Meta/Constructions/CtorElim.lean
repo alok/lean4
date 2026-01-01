@@ -10,6 +10,7 @@ prelude
 public import Lean.Meta.Basic
 import Lean.Meta.CompletionName
 import Lean.Meta.Constructions.CtorIdx
+import Lean.Meta.Constructions.RecursorLevels
 import Lean.Meta.NatTable
 import Lean.Elab.App
 import Lean.Meta.Tactic.Simp.Attr
@@ -62,7 +63,7 @@ def mkNatLookupTableLifting (n : Expr) (es : Array Expr) : MetaM Expr := do
   let u ← maxLevels es
   let u' := reassocMax (mkLevelMax' u 1).normalize
   let es ← es.mapM (mkPULift u)
-  mkNatLookupTable n (.sort u') es
+  mkNatLookupTable n (mkSort u') es
 
 def mkCtorElimTypeName (indName : Name) : Name :=
   Name.str indName "ctorElimType"
@@ -111,7 +112,11 @@ def mkIndCtorElim (indName : Name) : MetaM Unit := do
   let CtorElimTypeName := mkCtorElimTypeName indName
   let casesOnName := mkCasesOnName indName
   let casesOnInfo ← getConstVal casesOnName
-  let v::us := casesOnInfo.levelParams.map mkLevelParam | panic! "unexpected universe levels on `casesOn`"
+  let hlevel := info.type.getForallBody.sortHLevel!
+  let recLevels := getRecursorLevels casesOnInfo.levelParams info.levelParams hlevel
+  let v := recLevels.elimLevel
+  let us := recLevels.indLevels
+  let levels := recLevels.allLevels
   let e ← forallTelescope casesOnInfo.type fun xs _ =>
     let params : Array Expr := xs[:info.numParams]
     let motive := xs[info.numParams]!
@@ -119,7 +124,7 @@ def mkIndCtorElim (indName : Name) : MetaM Unit := do
     let majorArg := xs[info.numParams + 1 + info.numIndices]!
     let ism := indices.push majorArg
     withLocalDeclD `ctorIdx (mkConst ``Nat) fun ctorIdx => do
-    let kTypeF := mkAppN (mkConst CtorElimTypeName (v :: us)) (params.push motive)
+    let kTypeF := mkAppN (mkConst CtorElimTypeName levels) (params.push motive)
     let kType := mkApp kTypeF ctorIdx
     let ctorApp := mkAppN (mkConst (mkCtorIdxName indName) us) (params ++ ism)
     let hType ← mkEq ctorIdx ctorApp
@@ -127,7 +132,7 @@ def mkIndCtorElim (indName : Name) : MetaM Unit := do
     withLocalDeclD `k kType fun k => do
     let motive' ← mkLambdaFVars ism <|
       (← mkArrow hType (mkAppN motive ism))
-    let e := mkConst casesOnInfo.name (v :: us)
+    let e := mkConst casesOnInfo.name levels
     let e := mkAppN e params
     let e := mkApp e motive'
     let e := mkAppN e ism
@@ -136,7 +141,7 @@ def mkIndCtorElim (indName : Name) : MetaM Unit := do
       let ctorType ← inferType ctor
       forallTelescope ctorType fun zs _ctorRet => do
         -- Here we let the typecheker reduce the `ctorIdx` application
-          let heq := mkApp3 (mkConst ``Eq [1]) (mkConst ``Nat) ctorIdx (mkRawNatLit i)
+          let heq := mkApp3 (mkConst ``Eq [1, 0]) (mkConst ``Nat) ctorIdx (mkRawNatLit i)
           withLocalDeclD `h heq fun h => do
             let e ← mkEqNDRec (motive := kTypeF) k h
             let e ← mkPULiftDown e
@@ -167,7 +172,11 @@ def mkConstructorElim (indName : Name) : MetaM Unit := do
   let ConstantInfo.inductInfo info ← getConstInfo indName | unreachable!
   let casesOnName := mkCasesOnName indName
   let casesOnInfo ← getConstVal casesOnName
-  let v::us := casesOnInfo.levelParams.map mkLevelParam | panic! "unexpected universe levels on `casesOn`"
+  let hlevel := info.type.getForallBody.sortHLevel!
+  let recLevels := getRecursorLevels casesOnInfo.levelParams info.levelParams hlevel
+  let v := recLevels.elimLevel
+  let us := recLevels.indLevels
+  let levels := recLevels.allLevels
   let CtorElimName := mkCtorElimName indName
   let CtorElimTypeName := mkCtorElimTypeName indName
   let casesOnInfo ← getConstVal casesOnName
@@ -185,13 +194,13 @@ def mkConstructorElim (indName : Name) : MetaM Unit := do
       let ctorApp := mkAppN (mkConst (mkCtorIdxName indName) us) (params ++ ism)
       let hType ← mkEq ctorApp (mkRawNatLit i)
       withLocalDeclD `h hType fun h => do
-        let e := mkConst CtorElimName (v :: us)
+        let e := mkConst CtorElimName levels
         let e := mkAppN e params
         let e := mkApp e motive
         let e := mkApp e (mkRawNatLit i)
         let e := mkAppN e ism
         let e := mkApp e (← mkEqSymm h)
-        let CtorElimTypeApp := mkAppN (mkConst CtorElimTypeName (v :: us)) ((params.push motive).push (mkRawNatLit i))
+        let CtorElimTypeApp := mkAppN (mkConst CtorElimTypeName levels) ((params.push motive).push (mkRawNatLit i))
         let e := mkApp e (← withMkPULiftUp CtorElimTypeApp fun _ => pure alt)
         mkLambdaFVars (params ++ #[motive] ++ ism ++ #[h, alt]) e
     let declType ← inferType e

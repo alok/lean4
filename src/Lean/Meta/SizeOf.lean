@@ -125,8 +125,9 @@ where
 partial def mkSizeOfFn (recName : Name) (declName : Name): MetaM Unit := do
   trace[Meta.sizeOf] "recName: {recName}"
   let recInfo : RecursorVal ← getConstInfoRec recName
+  let indVal ← getConstInfoInduct recInfo.typeName
   forallTelescopeReducing recInfo.type fun xs _ =>
-    let levelParams := recInfo.levelParams.tail! -- universe parameters for declaration being defined
+    let levelParams := indVal.levelParams -- universe parameters for declaration being defined
     let params := xs[*...recInfo.numParams]
     let motiveFVars := xs[recInfo.numParams...(recInfo.numParams + recInfo.numMotives)]
     let minorFVars := xs[recInfo.getFirstMinorIdx...(recInfo.getFirstMinorIdx + recInfo.numMinors)]
@@ -135,7 +136,11 @@ partial def mkSizeOfFn (recName : Name) (declName : Name): MetaM Unit := do
     let nat := mkConst ``Nat
     mkLocalInstances params fun localInsts =>
     mkSizeOfMotives motiveFVars fun motives => do
-      let us := levelOne :: levelParams.map mkLevelParam -- universe level parameters for `rec`-application
+      let extra := recInfo.levelParams.length - levelParams.length
+      let us := match extra with
+        | 0 => levelParams.map mkLevelParam
+        | 1 => levelOne :: levelParams.map mkLevelParam
+        | _ => levelOne :: levelZero :: levelParams.map mkLevelParam -- universe level parameters for `rec`-application
       let recFn := mkConst recName us
       let val := mkAppN recFn (params ++ motives)
       forallBoundedTelescope (← inferType val) recInfo.numMinors fun minorFVars' _ =>

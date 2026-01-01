@@ -129,34 +129,41 @@ private def inferProjType (structName : Name) (idx : Nat) (e : Expr) : MetaM Exp
 def throwTypeExpected {α} (type : Expr) : MetaM α :=
   throwError "type expected{indentExpr type}"
 
-/--
-If `type : sort` and `sort` reduces to `Sort u` for some `u`, then `getLevel type` returns `u`.
-
-If `sort` is an assignable MVar, then `getLevel type` produces a fresh level metavariable `?u`,
-assigns the MVar to `Sort ?u` and returns `?u`.
--/
-def getLevel (type : Expr) : MetaM Level := do
+private def getSortLevels (type : Expr) : MetaM (Level × Level) := do
   let typeType ← inferType type
   let typeType ← whnfD typeType
   match typeType with
-  | Expr.sort lvl     => return lvl
+  | Expr.sort u h     => return (u, h)
   | Expr.mvar mvarId  =>
     if (← mvarId.isReadOnlyOrSyntheticOpaque) then
       throwTypeExpected type
     else
-      let lvl ← mkFreshLevelMVar
-      mvarId.assign (mkSort lvl)
-      return lvl
+      let u ← mkFreshLevelMVar
+      let h ← mkFreshLevelMVar
+      mvarId.assign (mkSortH u h)
+      return (u, h)
   | _ => throwTypeExpected type
+
+/--
+If `type : sort` and `sort` reduces to `Sort u`, then `getLevel type` returns `u`.
+
+If `sort` is an assignable MVar, then `getLevel type` produces fresh level metavariables,
+assigns the MVar to `Sort ?u ?h`, and returns `?u`.
+-/
+def getLevel (type : Expr) : MetaM Level := do
+  return (← getSortLevels type).1
+
+def getHLevel (type : Expr) : MetaM Level := do
+  return (← getSortLevels type).2
 
 private def inferForallType (e : Expr) : MetaM Expr :=
   forallTelescope e fun xs e => do
-    let lvl  ← getLevel e
-    let lvl  ← xs.foldrM (init := lvl) fun x lvl => do
-      let xType    ← inferType x
-      let xTypeLvl ← getLevel xType
-      return mkLevelIMax' xTypeLvl lvl
-    return mkSort lvl.normalize
+    let (lvl, hlvl) ← getSortLevels e
+    let (lvl, hlvl) ← xs.foldrM (init := (lvl, hlvl)) fun x (lvl, hlvl) => do
+      let xType ← inferType x
+      let (xTypeLvl, xTypeHLvl) ← getSortLevels xType
+      return (mkLevelIMax' xTypeLvl lvl, mkLevelMax xTypeHLvl hlvl)
+    return mkSortH lvl.normalize hlvl.normalize
 
 /-- Infer type of lambda and let expressions -/
 private def inferLambdaType (e : Expr) : MetaM Expr :=
@@ -218,7 +225,7 @@ def inferTypeImp (e : Expr) : MetaM Expr :=
     | .bvar bidx     => throwError "unexpected bound variable {mkBVar bidx}"
     | .mdata _ e     => infer e
     | .lit v         => return v.type
-    | .sort lvl      => return mkSort (mkLevelSucc lvl)
+    | .sort lvl h    => return mkSortH (mkLevelSucc lvl) h
     | .forallE ..    => checkInferTypeCache e (inferForallType e)
     | .lam ..        => checkInferTypeCache e (inferLambdaType e)
     | .letE ..       => checkInferTypeCache e (inferLambdaType e)
@@ -244,7 +251,7 @@ if `type` is of the form `A_1 → ... → A_n → Prop`.
 Remark: `type` can be a dependent arrow.
 -/
 private partial def isArrowProp : Expr → Nat → MetaM LBool
-  | .sort u,          0   => return isAlwaysZero (← instantiateLevelMVars u) |>.toLBool
+  | .sort u _,        0   => return isAlwaysZero (← instantiateLevelMVars u) |>.toLBool
   | .forallE ..,      0   => return LBool.false
   | .forallE _ _ b _, n+1 => isArrowProp b n
   | .letE _ _ _ b _,  n   => isArrowProp b n
@@ -299,7 +306,7 @@ def isProp (e : Expr) : MetaM Bool := do
     let type ← inferType e
     let type ← whnfD type
     match type with
-    | Expr.sort u => return isAlwaysZero (← instantiateLevelMVars u)
+    | Expr.sort u _ => return isAlwaysZero (← instantiateLevelMVars u)
     | _           => return false
 
 /-- Return type for the auxiliary function `isArrowProposition'` -/
@@ -366,7 +373,7 @@ where
 
   /-- Returns `.true` if `e` is `Prop`, `.false` if it is `Type _`, and `.undef` otherwise. -/
   checkProp : (e : Expr) → ArrowPropResult
-    | .sort u => if u.isNeverZero then .false else if u.isZero then .true else .undef
+    | .sort u _ => if u.isNeverZero then .false else if u.isZero then .true else .undef
     /- `outParam` is used in many polymorphic functions in Lean. -/
     | .app (.const ``outParam _) a => checkProp a
     | _ => .undef
@@ -483,7 +490,7 @@ def isType (e : Expr) : MetaM Bool := do
 
 def typeFormerTypeLevelQuick : Expr → Option Level
   | .forallE _ _ b _ => typeFormerTypeLevelQuick b
-  | .sort l => some l
+  | .sort l _ => some l
   | _ => none
 
 /--
@@ -496,12 +503,12 @@ partial def typeFormerTypeLevel (type : Expr) : MetaM (Option Level) := do
 where
   go (type : Expr) (xs : Array Expr) : MetaM (Option Level) := do
     match type with
-    | .sort l => return some l
+    | .sort l _ => return some l
     | .forallE n d b c => withLocalDeclNoLocalInstanceUpdate n c (d.instantiateRev xs) fun x => go b (xs.push x)
     | _ =>
       let type ← whnfD (type.instantiateRev xs)
       match type with
-      | .sort l => return some l
+      | .sort l _ => return some l
       | .forallE .. => go type #[]
       | _ => return none
 

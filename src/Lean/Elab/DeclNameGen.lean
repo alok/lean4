@@ -93,9 +93,9 @@ private partial def winnowExpr (e : Expr) : MetaM Expr := do
           visit (body.instantiate1 arg)
     | .letE _n _t v b _ => visit (b.instantiate1 v)
     | .sort .. =>
-      if e.isProp then return .sort levelZero
-      else if e.isType then return .sort levelOne
-      else return .sort (.param `u)
+      if e.isProp then return mkSort levelZero
+      else if e.isType then return mkSort levelOne
+      else return mkSort (.param `u)
     | .const name .. => return .const name []
     | .mdata _ e' => visit e'
     | _ => return .bvar 0
@@ -144,9 +144,9 @@ where
         visit body true
       else
         ("Forall" ++ sty ++ ·) <$> visit body
-    | .sort .zero => return "Prop"
-    | .sort (.succ _) => return "Type"
-    | .sort _ => return "Sort"
+    | .sort .zero _ => return "Prop"
+    | .sort (.succ _) _ => return "Type"
+    | .sort _ _ => return "Sort"
     | _ => return ""
 
 /--

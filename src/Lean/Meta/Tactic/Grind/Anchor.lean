@@ -81,7 +81,7 @@ public partial def getAnchor (e : Expr) : GrindM UInt64 := do
           else
             r := mix r (← getAnchor arg)
         pure r
-    | .sort _ | .mvar _ => pure 0
+    | .sort _ _ | .mvar _ => pure 0
   modify fun s => { s with anchors := s.anchors.insert { expr := e } a }
   return a
 

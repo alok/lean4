@@ -216,8 +216,8 @@ private def ensureType (r : Result) : M Result := do
     if type.isSort then
       return r
     else
-      let .sort u ← whnf type | throwTypeExpected r
-      let r := { r with type? := Expr.sort u }
+      let .sort u h ← whnf type | throwTypeExpected r
+      let r := { r with type? := Expr.sort u h }
       modify fun s => { s with results := s.results.insert r.expr r }
       return r
   else
@@ -284,10 +284,14 @@ where
   finalize (fvars : Array Expr) (doms : Array Result) (body : Result) : M Result := do
     let e' := (← getLCtx).mkForall fvars body
     if (← read).check then
-      let bodyLevel := (← ensureType body).type?.get!.sortLevel!
+      let bodyType := (← ensureType body).type?.get!
+      let bodyLevel := bodyType.sortLevel!
+      let bodyHLevel := bodyType.sortHLevel!
       let u ← doms.foldrM (init := bodyLevel) fun dom u =>
         return mkLevelIMax' (← dom.type).sortLevel! u
-      return { expr := e', type? := Expr.sort u }
+      let h ← doms.foldrM (init := bodyHLevel) fun dom h =>
+        return mkLevelMax (← dom.type).sortHLevel! h
+      return { expr := e', type? := Expr.sort u h }
     else
       return { expr := e', type? := none }
 
@@ -400,7 +404,7 @@ private partial def visit (e : Expr) : M Result := do
     | .bvar .. => throwError "unexpected bound variable {e}"
     | .fvar .. => visitFVar e
     | .mvar .. => visitMVar e
-    | .sort u => return { expr := e, type? := Expr.sort u.succ }
+    | .sort u h => return { expr := e, type? := Expr.sort u.succ h }
     | .const .. => visitConst e
     | .app .. => checkCache e do visitAppArgs e
     | .forallE .. => checkCache e do visitForall e

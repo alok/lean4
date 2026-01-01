@@ -26,12 +26,12 @@ mutual
   else if let some r ← f e offset then
     save key r
   else match e with
-    | .lit _ | .mvar _ | .bvar _ | .fvar _ | .const _ _ | .sort _ => save key e
+    | .lit _ | .mvar _ | .bvar _ | .fvar _ | .const _ _ | .sort _ _ => save key e
     | e => save key (← visit e offset f)
 
 @[specialize] def visit (e : Expr) (offset : Nat) (fn : Expr → Nat → AlphaShareBuilderM (Option Expr)) : M Expr := do
   match e with
-  | .lit _ | .mvar _ | .bvar _ | .fvar _ | .const _ _ | .sort _ => unreachable!
+  | .lit _ | .mvar _ | .bvar _ | .fvar _ | .const _ _ | .sort _ _ => unreachable!
   | .app f a => mkAppS (← visitChild f offset fn) (← visitChild a offset fn)
   | .mdata m a => mkMDataS m (← visitChild a offset fn)
   | .proj s i a => mkProjS s i (← visitChild a offset fn)
@@ -48,7 +48,7 @@ output is also maximally shared.
   if let some r ← f e 0 then
     return r
   match e with
-  | .lit _ | .mvar _ | .bvar _ | .fvar _ | .const _ _ | .sort _ => return e
+  | .lit _ | .mvar _ | .bvar _ | .fvar _ | .const _ _ | .sort _ _ => return e
   | _ => visit e 0 f |>.run' {}
 
 end Lean.Meta.Sym

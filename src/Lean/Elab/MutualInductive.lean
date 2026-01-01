@@ -492,7 +492,7 @@ private def getResultingUniverse : List InductiveType → TermElabM Level
   | indType :: _ => forallTelescopeReducing indType.type fun _ r => do
     let r ← whnfD r
     match r with
-    | Expr.sort u => return u
+    | Expr.sort u _ => return u
     | _           => throwError "Unexpected inductive type resulting type{indentExpr r}"
 
 /--
@@ -1113,6 +1113,13 @@ private def mkInductiveDecl (vars : Array Expr) (elabs : Array InductiveElabStep
     let res ← mkInductiveDeclCore addAndFinalizeInductiveDecl vars elabs rs scopeLevelNames
     return res
 
+private def getInductiveResultHLevel (env : Environment) (indName : Name) : Level :=
+  match env.find? indName with
+  | some (ConstantInfo.inductInfo info) =>
+      info.type.getForallBody.sortHLevel!
+  | _ =>
+      Level.zero
+
 private def mkAuxConstructions (declNames : Array Name) : TermElabM Unit := do
   let env ← getEnv
   let hasEq   := env.contains ``Eq
@@ -1125,7 +1132,10 @@ private def mkAuxConstructions (declNames : Array Name) : TermElabM Unit := do
     if hasUnit then mkCasesOn n
     if hasNat then mkCtorIdx n
     if hasNat then mkCtorElim n
-    if hasUnit && hasEq && hasHEq then mkNoConfusion n
+    if hasUnit && hasEq && hasHEq then
+      let hlevel := getInductiveResultHLevel env n
+      if hlevel.isZero then
+        mkNoConfusion n
     if hasUnit && hasProd then mkBelow n
   for n in declNames do
     if hasUnit && hasProd then mkBRecOn n

@@ -57,11 +57,11 @@ where
   | .un op operand => mkApp3 (mkConst ``BVExpr.un) (toExpr w) (toExpr op) (go operand)
   | .append (w := w) (l := l) (r := r) lhs rhs _ =>
     let wExpr := toExpr w
-    let proof := mkApp2 (mkConst ``Eq.refl [1]) (mkConst ``Nat) wExpr
+    let proof := mkApp2 (mkConst ``Eq.refl [1, 0]) (mkConst ``Nat) wExpr
     mkApp6 (mkConst ``BVExpr.append) (toExpr l) (toExpr r) wExpr (go lhs) (go rhs) proof
   | .replicate (w' := newWidth) (w := oldWidth) w inner _ =>
     let newWExpr := toExpr newWidth
-    let proof := mkApp2 (mkConst ``Eq.refl [1]) (mkConst ``Nat) newWExpr
+    let proof := mkApp2 (mkConst ``Eq.refl [1, 0]) (mkConst ``Nat) newWExpr
     mkApp5 (mkConst ``BVExpr.replicate) (toExpr oldWidth) newWExpr (toExpr w) (go inner) proof
   | .extract (w := oldWidth) hi lo expr =>
     mkApp4 (mkConst ``BVExpr.extract) (toExpr oldWidth) (toExpr hi) (toExpr lo) (go expr)

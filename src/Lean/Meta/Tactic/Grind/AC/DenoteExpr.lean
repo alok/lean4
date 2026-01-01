@@ -24,7 +24,8 @@ def _root_.Lean.Grind.AC.Expr.denoteExpr (e : AC.Expr) : M Expr := do
 
 def EqCnstr.denoteExpr (c : EqCnstr) : M Expr := do
   let s ← getStruct
-  return mkApp3 (mkConst ``Eq [s.u]) s.type (← c.lhs.denoteExpr) (← c.rhs.denoteExpr)
+  let hlevel ← getHLevel s.type
+  return mkApp3 (mkConst ``Eq [s.u, hlevel]) s.type (← c.lhs.denoteExpr) (← c.rhs.denoteExpr)
 
 def DiseqCnstr.denoteExpr (c : DiseqCnstr) : M Expr := do
   let s ← getStruct

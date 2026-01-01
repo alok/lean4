@@ -362,8 +362,9 @@ private def propagateEtaStruct (a : Expr) (generation : Nat) : GoalM Unit := do
         ctorApp ← preprocessLight ctorApp
         internalize ctorApp generation
         let u ← getLevel aType
-        let expectedProp := mkApp3 (mkConst ``Eq [u]) aType a ctorApp
-        pushEq a ctorApp <| mkExpectedPropHint (mkApp2 (mkConst ``Eq.refl [u]) aType a) expectedProp
+        let h ← getHLevel aType
+        let expectedProp := mkApp3 (mkConst ``Eq [u, h]) aType a ctorApp
+        pushEq a ctorApp <| mkExpectedPropHint (mkApp2 (mkConst ``Eq.refl [u, h]) aType a) expectedProp
 
 /-- Returns `true` if we can ignore `ext` for functions occurring as arguments of a `declName`-application. -/
 private def extParentsToIgnore (declName : Name) : Bool :=
@@ -410,7 +411,9 @@ where
     let others := (← get).split.argsAt.find? (f, i) |>.getD []
     for other in others do
       if (← isDefEqD type other.type) then
-        let eq := mkApp3 (mkConst ``Eq [← getLevel type]) type arg other.arg
+        let u ← getLevel type
+        let h ← getHLevel type
+        let eq := mkApp3 (mkConst ``Eq [u, h]) type arg other.arg
         let eq ← shareCommon eq
         internalize eq generation
         trace_goal[grind.ext.candidate] "{eq}"

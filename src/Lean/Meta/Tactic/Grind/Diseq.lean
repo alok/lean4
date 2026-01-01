@@ -10,7 +10,7 @@ import Init.Grind.Lemmas
 public section
 namespace Lean.Meta.Grind
 
-private def dummyEq : Expr := mkApp (mkConst ``Eq [1]) default
+private def dummyEq : Expr := mkApp (mkConst ``Eq [1, 0]) default
 
 /--
 Returns `some (c = d)` if

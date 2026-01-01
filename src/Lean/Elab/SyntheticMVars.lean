@@ -264,7 +264,7 @@ def explainStuckTypeclassProblem (typeclassProblem : Expr) : TermElabM (Option M
     | _ => return .none -- Unexpected type structure; fall back to default error
     ord := ord + 1
 
-  let .sort _ := kind
+  let .sort _ _ := kind
     | return .none -- Unexpected type structure; fall back to default error
   let nStuck := stuckArguments.size
   if nStuck = 0 then

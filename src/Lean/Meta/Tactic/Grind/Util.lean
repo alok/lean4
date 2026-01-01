@@ -192,7 +192,7 @@ def foldProjs (e : Expr) : MetaM Expr := do
 private def levelsAlreadyNormalized (e : Expr) : Bool :=
   Option.isNone <| e.find? fun
     | .const _ us => us.any (! ·.isAlreadyNormalizedCheap)
-    | .sort u => !u.isAlreadyNormalizedCheap
+    | .sort u _ => !u.isAlreadyNormalizedCheap
     | _ => false
 
 /--
@@ -202,7 +202,13 @@ def normalizeLevels (e : Expr) : CoreM Expr := do
   if levelsAlreadyNormalized e then return e
   let pre (e : Expr) := do
     match e with
-    | .sort u => return .done <| e.updateSort! u.normalize
+    | .sort u h =>
+      let u' := u.normalize
+      let h' := h.normalize
+      if u == u' && h == h' then
+        return .done e
+      else
+        return .done (mkSortH u' h')
     | .const _ us => return .done <| e.updateConst! (us.map Level.normalize)
     | _ => return .continue
   Core.transform e (pre := pre)

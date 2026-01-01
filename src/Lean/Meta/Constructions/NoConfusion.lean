@@ -12,6 +12,7 @@ import Lean.Meta.AppBuilder
 import Lean.Meta.CompletionName
 import Lean.Meta.Constructions.CtorIdx
 import Lean.Meta.Constructions.CtorElim
+import Lean.Meta.Constructions.RecursorLevels
 import Lean.Meta.Tactic.Subst
 
 namespace Lean
@@ -63,7 +64,7 @@ def canUseLinear (indName : Name) : MetaM Bool := do
   return true
 
 def mkIfNatEq (P : Expr) (e1 e2 : Expr) («then» : Expr → MetaM Expr) («else» : Expr → MetaM Expr) : MetaM Expr := do
-  let heq := mkApp3 (mkConst ``Eq [1]) (mkConst ``Nat) e1 e2
+  let heq := mkApp3 (mkConst ``Eq [1, 0]) (mkConst ``Nat) e1 e2
   let u ← getLevel P
   let e := mkApp3 (mkConst ``dite [u]) P heq (mkApp2 (mkConst ``Nat.decEq) e1 e2)
   let e := mkApp e (← withLocalDeclD `h heq (fun h => do mkLambdaFVars #[h] (← «then» h)))
@@ -73,16 +74,23 @@ def mkIfNatEq (P : Expr) (e1 e2 : Expr) («then» : Expr → MetaM Expr) («else
 def mkNoConfusionType (indName : Name) : MetaM Unit := do
   let declName := mkNoConfusionTypeName indName
   let ConstantInfo.inductInfo info ← getConstInfo indName | unreachable!
+  let hlevel := info.type.getForallBody.sortHLevel!
   let useLinearConstruction :=
     (info.numCtors > 2) &&
     backward.linearNoConfusionType.get (← getOptions) &&
     (← hasConst (mkCtorElimName indName))
   let casesOnName := mkCasesOnName indName
   let casesOnInfo ← getConstVal casesOnName
-  let v::us := casesOnInfo.levelParams.map mkLevelParam | panic! "unexpected universe levels on `casesOn`"
-  let e := mkConst casesOnName (v.succ::us)
+  let recLevels := getRecursorLevels casesOnInfo.levelParams info.levelParams hlevel
+  let v := recLevels.elimLevel
+  let us := recLevels.indLevels
+  let casesOnLevels := match recLevels.extra with
+    | 0 => us
+    | 1 => v.succ :: us
+    | _ => v.succ :: hlevel :: us
+  let e := mkConst casesOnName casesOnLevels
   let t ← inferType e
-  let PType := mkSort v
+  let PType := mkSortH v hlevel
   let e ← withLocalDeclD `P PType fun P => do
     forallBoundedTelescope t info.numParams fun xs1 t1 => do
     forallBoundedTelescope t info.numParams fun xs2 t2 => do
@@ -106,7 +114,7 @@ def mkNoConfusionType (indName : Name) : MetaM Unit := do
                 («else» := fun _ => pure P) fun h => do
                 let conName := info.ctors[i]!
                 let withName := mkConstructorElimName indName conName
-                let e := mkConst withName (v.succ :: us)
+                let e := mkConst withName casesOnLevels
                 let e := mkAppN e (xs2 ++ #[motive2] ++ ysx2 ++ #[h])
                 let e := mkApp e <|
                   ← forallTelescopeReducing ((← whnf (← inferType e)).bindingDomain!) fun zs2 _ => do
@@ -117,7 +125,7 @@ def mkNoConfusionType (indName : Name) : MetaM Unit := do
               mkLambdaFVars zs1 alt
             else
               let conName := info.ctors[i]!
-              let alt := mkConst casesOnName (v.succ :: us)
+              let alt := mkConst casesOnName casesOnLevels
               let alt := mkAppN alt (xs2 ++ #[motive2] ++ ysx2)
               let t2 ← inferType alt
               let altTypes2 ← arrowDomainsN info.numCtors t2
@@ -214,16 +222,19 @@ def mkNoConfusionCoreImp (indName : Name) : MetaM Unit := do
   let ConstantInfo.inductInfo info ← getConstInfo indName | unreachable!
   let casesOnName := mkCasesOnName indName
   let casesOnInfo ← getConstVal casesOnName
-  let v::us := casesOnInfo.levelParams.map mkLevelParam | panic! "unexpected universe levels on `casesOn`"
+  let hlevel := info.type.getForallBody.sortHLevel!
+  let recLevels := getRecursorLevels casesOnInfo.levelParams info.levelParams hlevel
+  let levels := recLevels.allLevels
+  let us := recLevels.indLevels
   trace[Meta.mkNoConfusion] m!"mkNoConfusionCoreImp for {declName}"
-  let e ← forallBoundedTelescope (← inferType (mkConst noConfusionTypeName (v::us))) (some 1) fun xs t => do
+  let e ← forallBoundedTelescope (← inferType (mkConst noConfusionTypeName levels)) (some 1) fun xs t => do
     let P := xs[0]!
     forallBoundedTelescope t (some (info.numParams + info.numIndices + 1)) fun xs1 t => do -- params, indices and major
     forallBoundedTelescope t (some (info.numParams + info.numIndices + 1)) fun xs2 _ => do -- params, indices and major
     withImplicitBinderInfos ((xs1 ++ xs2).push P) do
       let params1 : Array Expr := xs1[:info.numParams]
       let ysx1    : Array Expr := xs1[info.numParams:]
-      let target1 := mkAppN (mkConst noConfusionTypeName (v :: us)) (#[P] ++ xs1 ++ xs1)
+      let target1 := mkAppN (mkConst noConfusionTypeName levels) (#[P] ++ xs1 ++ xs1)
       let motive1 ← mkLambdaFVars ysx1 target1
       let alts ← info.ctors.mapM fun ctor => do
         let ctorType ← inferType (mkAppN (mkConst ctor us) params1)
@@ -240,8 +251,8 @@ def mkNoConfusionCoreImp (indName : Name) : MetaM Unit := do
               else
                 throwError "unexpected equation {eqn} in `mkNoConfusionCtorArg` for {ctor}"
             mkLambdaFVars (fs1 ++ #[k]) e
-      let e := mkAppN (mkConst casesOnName (v :: us)) (params1 ++ #[motive1] ++ ysx1 ++ alts)
-      let target2 := mkAppN (mkConst noConfusionTypeName (v :: us)) (#[P] ++ xs1 ++ xs2)
+      let e := mkAppN (mkConst casesOnName levels) (params1 ++ #[motive1] ++ ysx1 ++ alts)
+      let target2 := mkAppN (mkConst noConfusionTypeName levels) (#[P] ++ xs1 ++ xs2)
       let motive2 ← mkLambdaFVars xs2 target2
       let e ← mkEqNDRecTelescope motive2 e xs1 xs2
       mkLambdaFVars (#[P] ++ xs1 ++ xs2) e
@@ -297,13 +308,17 @@ def mkNoConfusionCtors (declName : Name) : MetaM Unit := do
 
   -- We take the level names from `.rec`, as that conveniently has an extra level parameter that
   -- is distinct from the ones from the inductive
-  let (v::us) := recInfo.levelParams.map mkLevelParam | throwError "unexpected number of level parameters in {recInfo.name}"
+  let hlevel := indVal.type.getForallBody.sortHLevel!
+  let recLevels := getRecursorLevels recInfo.levelParams indVal.levelParams hlevel
+  let v := recLevels.elimLevel
+  let us := recLevels.indLevels
+  let levels := recLevels.allLevels
 
   for ctor in indVal.ctors do
     let ctorInfo ← getConstInfoCtor ctor
     if ctorInfo.numFields > 0 then
       forallBoundedTelescope ctorInfo.type ctorInfo.numParams fun xs t => do
-      withLocalDeclD `P (.sort v) fun P =>
+      withLocalDeclD `P (mkSortH v hlevel) fun P =>
       forallBoundedTelescope t ctorInfo.numFields fun fields1 _ => do
       forallBoundedTelescope t ctorInfo.numFields fun fields2 _ => do
       withPrimedNames fields2 do
@@ -319,7 +334,7 @@ def mkNoConfusionCtors (declName : Name) : MetaM Unit := do
           let kType := kType.beta (xs ++ fields1 ++ xs ++ fields2)
           -- TODO: Turn HEq to Eq in kType
           withLocalDeclD `k kType fun k => do
-            let mut e := mkConst noConfusionName (v :: us)
+            let mut e := mkConst noConfusionName levels
             e := mkAppN e (#[P] ++ xs ++ is1 ++ #[ctor1] ++ xs ++ is2 ++ #[ctor2])
             -- Pass rfl equalities for parameters
             for _ in [:xs.size] do
@@ -363,7 +378,9 @@ def mkNoConfusionCore (declName : Name) : MetaM Unit := do
 
   mkNoConfusionType declName
   mkNoConfusionCoreImp declName
-  mkNoConfusionCtors declName
+  -- TEMP: per-ctor noConfusion lemmas are disabled during hlevel bootstrap.
+  -- TODO: re-enable once stage0 is fully updated.
+  -- mkNoConfusionCtors declName
 
 def mkNoConfusionEnum (enumName : Name) : MetaM Unit := do
   if (← getEnv).contains ``noConfusionEnum then
@@ -378,7 +395,7 @@ where
     let us := info.levelParams.map mkLevelParam
     let v ← mkFreshUserName `v
     let enumType := mkConst enumName us
-    let sortV := mkSort (mkLevelParam v)
+    let sortV := mkSortH (mkLevelParam v) (info.type.getForallBody.sortHLevel!)
     withLocalDeclD `P sortV fun P =>
     withLocalDeclD `x enumType fun x =>
     withLocalDeclD `y enumType fun y => do
@@ -405,7 +422,7 @@ where
     let us := info.levelParams.map mkLevelParam
     let v ← mkFreshUserName `v
     let enumType := mkConst enumName us
-    let sortV := mkSort (mkLevelParam v)
+    let sortV := mkSortH (mkLevelParam v) (info.type.getForallBody.sortHLevel!)
     let ctorIdx := mkConst (mkCtorIdxName enumName) us
     let noConfusionType := mkConst (Name.mkStr enumName "noConfusionType") (mkLevelParam v :: us)
     withLocalDecl `P BinderInfo.implicit sortV fun P =>

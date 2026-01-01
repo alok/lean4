@@ -144,7 +144,7 @@ def getExprKind : DelabM Name := do
   | Expr.bvar _          => `bvar
   | Expr.fvar _          => `fvar
   | Expr.mvar _          => `mvar
-  | Expr.sort _          => `sort
+  | Expr.sort _ _        => `sort
   | Expr.const c _       =>
     -- we identify constants as "nullary applications" to reduce special casing
     `app ++ c

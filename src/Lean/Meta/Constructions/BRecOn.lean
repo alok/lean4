@@ -41,7 +41,7 @@ where
     forallTelescope argType fun arg_args arg_type => do
       if motives.contains arg_type.getAppFn then
         let name ← arg.fvarId!.getUserName
-        let type' ← forallTelescope argType fun args _ => mkForallFVars args (.sort rlvl)
+        let type' ← forallTelescope argType fun args _ => mkForallFVars args (mkSort rlvl)
         withLocalDeclD name type' fun arg' => do
           let e' ← mkForallFVars arg_args <| ← mkPProd arg_type (mkAppN arg' arg_args)
           mkLambdaFVars #[arg'] (← go (prods.push e') args)
@@ -89,7 +89,7 @@ private def mkBelowFromRec (recName : Name) (nParams : Nat)
     -- add type formers
     for motive in motives do
       let arg ← forallTelescope (← inferType motive) fun targs _ =>
-        mkLambdaFVars targs (.sort rlvl)
+        mkLambdaFVars targs (mkSort rlvl)
       val := .app val arg
     -- add minor premises
     for minor in minors do
@@ -101,7 +101,7 @@ private def mkBelowFromRec (recName : Name) (nParams : Nat)
 
     -- All parameters of `.rec` besides the `minors` become parameters of `.below`
     let below_params := params ++ motives ++ indices ++ #[major]
-    let type ← mkForallFVars below_params (.sort rlvl)
+    let type ← mkForallFVars below_params (mkSort rlvl)
     val ← mkLambdaFVars below_params val
 
     mkDefinitionValInferringUnsafe belowName recVal.levelParams type val .abbrev

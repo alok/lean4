@@ -23,10 +23,10 @@ open Lean.Meta
 namespace ReifiedBVLogical
 
 def mkRefl (expr : Expr) : Expr :=
-  mkApp2 (mkConst ``Eq.refl [1]) (mkConst ``Bool) expr
+  mkApp2 (mkConst ``Eq.refl [1, 0]) (mkConst ``Bool) expr
 
 def mkTrans (x y z : Expr) (hxy hyz : Expr) : Expr :=
-  mkApp6 (mkConst ``Eq.trans [1]) (mkConst ``Bool) x y z hxy hyz
+  mkApp6 (mkConst ``Eq.trans [1, 0]) (mkConst ``Bool) x y z hxy hyz
 
 def mkEvalExpr (expr : Expr) : M Expr := do
   return mkApp2 (mkConst ``BVLogicalExpr.eval) (← M.atomsAssignment) expr

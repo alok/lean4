@@ -27,7 +27,7 @@ def getCalcRelation? (e : Expr) : MetaM (Option (Expr × Expr × Expr)) := do
 private def getRelUniv (r : Expr) : MetaM Level := do
   let rType ← inferType r
   forallTelescopeReducing rType fun _ sort => do
-    let .sort u ← whnf sort | throwError "unexpected relation type{indentExpr rType}"
+    let .sort u _ ← whnf sort | throwError "unexpected relation type{indentExpr rType}"
     return u
 
 def mkCalcTrans (result resultType step stepType : Expr) : MetaM (Expr × Expr) := do

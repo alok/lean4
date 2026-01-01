@@ -24,8 +24,8 @@ open Std.Tactic.BVDecide.Normalize
 private def mkDecideProofWith (p : Expr) (inst : Expr) : Expr :=
   let decP := mkApp2 (mkConst ``Decidable.decide) p inst
   let boolTy := mkConst ``Bool
-  let decEqTrue := mkApp3 (mkConst ``Eq [1]) boolTy decP (mkConst ``Bool.true)
-  let h := mkApp2 (mkConst ``Eq.refl [1]) boolTy (mkConst ``Bool.true)
+  let decEqTrue := mkApp3 (mkConst ``Eq [1, 0]) boolTy decP (mkConst ``Bool.true)
+  let h := mkApp2 (mkConst ``Eq.refl [1, 0]) boolTy (mkConst ``Bool.true)
   let h := mkExpectedPropHint h decEqTrue
   mkApp3 (mkConst ``of_decide_eq_true) p inst h
 
@@ -109,7 +109,7 @@ end Bool
 namespace Nat
 
 private def mkDecideProofEq (lhs rhs : Expr) : Expr :=
-  let p := mkApp3 (mkConst ``Eq [1]) (mkConst ``Nat) lhs rhs
+  let p := mkApp3 (mkConst ``Eq [1, 0]) (mkConst ``Nat) lhs rhs
   let inst := mkApp2 (mkConst ``instDecidableEqNat) lhs rhs
   mkDecideProofWith p inst
 
@@ -840,7 +840,7 @@ builtin_simproc [bv_normalize] eqToBEq (((_ : Bool) = (_ : Bool))) := fun e => d
   | Bool.true => return .continue
   | _ =>
     let beqApp ← mkAppM ``BEq.beq #[lhs, rhs]
-    let new := mkApp3 (mkConst ``Eq [1]) (mkConst ``Bool) beqApp (mkConst ``Bool.true)
+    let new := mkApp3 (mkConst ``Eq [1, 0]) (mkConst ``Bool) beqApp (mkConst ``Bool.true)
     let proof := mkApp2 (mkConst ``Bool.eq_to_beq) lhs rhs
     return .done { expr := new, proof? := some proof }
 

@@ -31,7 +31,7 @@ def mkEvalExpr (w : Nat) (expr : Expr) : M Expr := do
 
 def mkBVRefl (w : Nat) (expr : Expr) : Expr :=
   mkApp2
-   (mkConst ``Eq.refl [1])
+   (mkConst ``Eq.refl [1, 0])
    (mkApp (mkConst ``BitVec) (toExpr w))
    expr
 

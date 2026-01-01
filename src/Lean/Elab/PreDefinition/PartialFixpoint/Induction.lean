@@ -200,7 +200,7 @@ def deriveInduction (name : Name) (isMutual : Bool) : MetaM Unit := do
         let instCCPOs := CCPOProdProjs infos.size instCCPOα
         let types ← infos.mapIdxM (eqnInfo.fixedParamPerms.perms[·]!.instantiateForall ·.type xs)
         let packedType ← PProdN.pack 0 types
-        let motiveTypes ← types.mapM (mkArrow · (.sort 0))
+        let motiveTypes ← types.mapM (mkArrow · (mkSort 0))
         let motiveNames := numberNames motiveTypes.size "motive"
         withLocalDeclsDND (motiveNames.zip motiveTypes) fun motives => do
           let packedMotive ←
@@ -386,7 +386,7 @@ def derivePartialCorrectness (name : Name) (isConclusionMutual : Bool) : MetaM U
           let type ← whnf type
           let_expr Option γ := type | throwError "Expected `Option`, got:{indentExpr type}"
           withLocalDeclD (← mkFreshUserName `r) γ fun r =>
-            mkForallFVars (ys.push r) (.sort 0)
+            mkForallFVars (ys.push r) (mkSort 0)
       let motiveDecls ← motiveTypes.mapIdxM fun i motiveType => do
         let n := if infos.size = 1 then .mkSimple "motive"
                                    else .mkSimple s!"motive_{i+1}"

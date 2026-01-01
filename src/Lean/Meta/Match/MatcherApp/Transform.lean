@@ -424,7 +424,7 @@ def inferMatchType (matcherApp : MatcherApp) : MetaM MatcherApp := do
   matcherApp.transform (useSplitter := true)
     (onMotive := fun motiveArgs body => do
       let extraParams ← arrowDomainsN nExtra body
-      let propMotive ← mkLambdaFVars motiveArgs (.sort levelZero)
+      let propMotive ← mkLambdaFVars motiveArgs (mkSort levelZero)
       let propAlts ← matcherApp.alts.mapM fun termAlt =>
         lambdaTelescope termAlt fun xs termAltBody => do
           -- We have alt parameters and parameters corresponding to the extra args

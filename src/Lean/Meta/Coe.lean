@@ -34,7 +34,7 @@ def isCoeDecl (env : Environment) (declName : Name) : Bool :=
 /-- Recurse through projection functions (e.g. `(f a b c).fst.snd` => `f`) -/
 private partial def recProjTarget (e : Expr) (nm : Name := e.getAppFn.constName!) : MetaM Name := do
   let some info ← getProjectionFnInfo? nm | return nm
-  let target := e.getArgD info.numParams (.sort .zero)
+  let target := e.getArgD info.numParams (mkSort levelZero)
   if target.getAppFn.isConst then
     recProjTarget target
   else
@@ -219,8 +219,9 @@ def coerceMonadLift? (e expectedType : Expr) : MetaM (Option Expr) := do
       -- Construct lift from `m` to `n`
       -- Note: we cannot use mkAppM here because mkAppM does not assign universe metavariables,
       -- but we need to make sure that the domains of `m` and `n` have the same level.
-      let .forallE _ (.sort um₁) (.sort um₂) _ ← whnf (← inferType m) | return none
-      let .forallE _ (.sort un₁) (.sort un₂) _ ← whnf (← inferType n) | return none
+      let .forallE _ (.sort um₁ hm₁) (.sort um₂ hm₂) _ ← whnf (← inferType m) | return none
+      let .forallE _ (.sort un₁ hn₁) (.sort un₂ hn₂) _ ← whnf (← inferType n) | return none
+      if hm₁ != hn₁ || hm₂ != hn₂ then return none
       let u ← decLevel um₁
       let .true ← isLevelDefEq u (← decLevel un₁) | return none
       let v ← decLevel um₂

@@ -434,7 +434,7 @@ instance : ToFormat GuessLexRel where
 /-- Given a `GuessLexRel`, produce a binary `Expr` that relates two `Nat` values accordingly. -/
 def GuessLexRel.toNatRel : GuessLexRel → Expr
   | lt => mkAppN (mkConst ``LT.lt [levelZero]) #[mkConst ``Nat, mkConst ``instLTNat]
-  | eq => mkAppN (mkConst ``Eq [levelOne]) #[mkConst ``Nat]
+  | eq => mkAppN (mkConst ``Eq [levelOne, levelZero]) #[mkConst ``Nat]
   | le => mkAppN (mkConst ``LE.le [levelZero]) #[mkConst ``Nat, mkConst ``instLENat]
   | no_idea => unreachable!
 

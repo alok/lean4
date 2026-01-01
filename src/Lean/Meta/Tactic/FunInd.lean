@@ -815,9 +815,9 @@ where doRealize (inductName : Name) := do
     let motiveType ←
       if unfolding then
         withLocalDeclD `r (← instantiateForall info.type params) fun r =>
-          mkForallFVars #[target, r] (.sort 0)
+          mkForallFVars #[target, r] (mkSort 0)
       else
-        mkForallFVars #[target] (.sort 0)
+        mkForallFVars #[target] (mkSort 0)
     withLocalDeclD `motive motiveType fun motive => do
       let fn := mkAppN (← mkConstWithLevelParams name) fixedParamPerms
       let isRecCall : Expr → Option Expr := fun e =>
@@ -1193,9 +1193,9 @@ where doRealize inductName := do
           forallBoundedTelescope funType (some (fixedParamPerms.perms[funIdx]!.size - xs.size)) fun ys rType => do
             if unfolding then
               withLocalDeclD `r rType fun r =>
-                mkForallFVars (ys.push r) (.sort 0)
+                mkForallFVars (ys.push r) (mkSort 0)
             else
-              mkForallFVars ys (.sort 0)
+              mkForallFVars ys (mkSort 0)
         trace[Meta.FunInd] m!"motiveTypes: {motiveTypes}"
         let motiveArities ← motiveTypes.mapM fun motiveType =>
           forallTelescope motiveType fun ys _ => pure ys.size
@@ -1416,9 +1416,9 @@ def deriveCases (unfolding : Bool) (name : Name) : MetaM Unit := do
       let motiveType ←
         if unfolding then
           withLocalDeclD `r (← instantiateForall info.type xs) fun r =>
-            mkForallFVars (targets.push r) (.sort 0)
+            mkForallFVars (targets.push r) (mkSort 0)
         else
-          mkForallFVars targets (.sort 0)
+          mkForallFVars targets (mkSort 0)
       -- Remove targets from local context, we want to bring them into scope after the motive
       -- so that the index passed to `abstractIndependentMVars` works.
       withErasedFVars (targets.map (·.fvarId!)) do

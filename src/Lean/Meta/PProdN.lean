@@ -93,7 +93,7 @@ def genMk {α : Type _} [Inhabited α] (mk : α → α → MetaM α) (xs : Array
 def pack (lvl : Level) (xs : Array Expr) : MetaM Expr := do
   if xs.size = 0 then
     if lvl.isAlwaysZero then return .const ``True []
-                        else return .const ``PUnit [lvl]
+                        else return .const ``PUnit [lvl, levelZero]
   genMk mkPProd xs
 
 /--
@@ -115,7 +115,7 @@ where
 def mk (lvl : Level) (xs : Array Expr) : MetaM Expr := do
   if xs.size = 0 then
     if lvl.isAlwaysZero then return .const ``True.intro []
-                        else return .const ``PUnit.unit [lvl]
+                        else return .const ``PUnit.unit [lvl, levelZero]
   genMk mkPProdMk xs
 
 /-- Given a value `e` of type `t = t₁ ×' … ×' tᵢ ×' … ×' tₙ`, return a value of type `tᵢ` -/

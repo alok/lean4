@@ -99,7 +99,7 @@ where
       let_expr Bool.and lhs rhs := eqLhs | return none
       let_expr Bool.true := eqRhs | return none
       let mkEqTrue (lhs : Expr) : Expr :=
-        mkApp3 (mkConst ``Eq [1]) (mkConst ``Bool) lhs (mkConst ``Bool.true)
+        mkApp3 (mkConst ``Eq [1, 0]) (mkConst ``Bool) lhs (mkConst ``Bool.true)
       let leftHyp : Hypothesis := {
         userName := hyp.hyp.userName,
         type := mkEqTrue lhs,

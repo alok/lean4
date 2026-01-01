@@ -60,6 +60,8 @@ where
       let lo ← normalizeBound lo
       let hi ← normalizeBound hi
       return some (.co lo hi)
+    | Grind.IntInterval.ii =>
+      return some .ii
     | _ =>
       trace[grind.debug.lia.toInt] "unsupported `ToInt` interval{indentExpr rangeExpr}\nfor type{indentExpr type}"
       return none
@@ -130,7 +132,7 @@ def ToIntM.run (type : Expr) (x : ToIntM Unit) : GoalM Unit := do
   let some toIntId ← getToIntId? type | return ()
   x { toIntId }
 
-private def intRfl := mkApp (mkConst ``Eq.refl [1]) Int.mkType
+private def intRfl := mkApp (mkConst ``Eq.refl [1, 0]) Int.mkType
 
 private def mkOfLE : ToIntM (Option Expr × Option Expr) := do
   let info ← getInfo

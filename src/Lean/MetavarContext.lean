@@ -464,7 +464,7 @@ def hasAssignedLevelMVar [Monad m] [MonadMCtx m] : Level → m Bool
 /-- Return `true` iff expression contains assigned (level/expr) metavariables or delayed assigned mvars -/
 def hasAssignedMVar [Monad m] [MonadMCtx m] : Expr → m Bool
   | .const _ lvls    => lvls.anyM hasAssignedLevelMVar
-  | .sort lvl        => hasAssignedLevelMVar lvl
+  | .sort u h        => (pure u.hasMVar <&&> hasAssignedLevelMVar u) <||> (pure h.hasMVar <&&> hasAssignedLevelMVar h)
   | .app f a         => (pure f.hasMVar <&&> hasAssignedMVar f) <||> (pure a.hasMVar <&&> hasAssignedMVar a)
   | .letE _ t v b _  => (pure t.hasMVar <&&> hasAssignedMVar t) <||> (pure v.hasMVar <&&> hasAssignedMVar v) <||> (pure b.hasMVar <&&> hasAssignedMVar b)
   | .forallE _ d b _ => (pure d.hasMVar <&&> hasAssignedMVar d) <||> (pure b.hasMVar <&&> hasAssignedMVar b)
@@ -488,7 +488,7 @@ def hasAssignableLevelMVar [Monad m] [MonadMCtx m] : Level → m Bool
 /-- Return `true` iff expression contains a metavariable that can be assigned. -/
 def hasAssignableMVar [Monad m] [MonadMCtx m] : Expr → m Bool
   | .const _ lvls    => lvls.anyM hasAssignableLevelMVar
-  | .sort lvl        => hasAssignableLevelMVar lvl
+  | .sort u h        => (pure u.hasMVar <&&> hasAssignableLevelMVar u) <||> (pure h.hasMVar <&&> hasAssignableLevelMVar h)
   | .app f a         => (pure f.hasMVar <&&> hasAssignableMVar f) <||> (pure a.hasMVar <&&> hasAssignableMVar a)
   | .letE _ t v b _  => (pure t.hasMVar <&&> hasAssignableMVar t) <||> (pure v.hasMVar <&&> hasAssignableMVar v) <||> (pure b.hasMVar <&&> hasAssignableMVar b)
   | .forallE _ d b _ => (pure d.hasMVar <&&> hasAssignableMVar d) <||> (pure b.hasMVar <&&> hasAssignableMVar b)
@@ -1452,7 +1452,13 @@ partial def main (e : Expr) : M Expr :=
       | .app ..          => e.withApp fun f args => visitApp f args
       | .mdata _ b       => return e.updateMData! (← main b)
       | .const _ us      => return e.updateConst! (← us.mapM visitLevel)
-      | .sort u          => return e.updateSort! (← visitLevel u)
+      | .sort u h        =>
+        let u' ← visitLevel u
+        let h' ← visitLevel h
+        if u == u' && h == h' then
+          return e
+        else
+          return mkSortH u' h'
       | .mvar ..         => visitApp e #[]
       | e                => return e
 where

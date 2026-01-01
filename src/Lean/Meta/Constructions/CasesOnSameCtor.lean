@@ -11,6 +11,7 @@ public import Lean.Meta.Basic
 import Lean.Meta.CompletionName
 import Lean.Meta.Constructions.CtorIdx
 import Lean.Meta.Constructions.CtorElim
+import Lean.Meta.Constructions.RecursorLevels
 import Lean.Elab.App
 import Lean.Meta.SameCtorUtils
 
@@ -30,12 +31,17 @@ public def mkCasesOnSameCtorHet (declName : Name) (indName : Name) : MetaM Unit 
   let ConstantInfo.inductInfo info ← getConstInfo indName | unreachable!
   let casesOnName := mkCasesOnName indName
   let casesOnInfo ← getConstVal casesOnName
-  let v::us := casesOnInfo.levelParams.map mkLevelParam | panic! "unexpected universe levels on `casesOn`"
+  let hlevel := info.type.getForallBody.sortHLevel!
+  let recLevels := getRecursorLevels casesOnInfo.levelParams info.levelParams hlevel
+  let v := recLevels.elimLevel
+  let h := recLevels.elimHLevel
+  let us := recLevels.indLevels
+  let levels := recLevels.allLevels
   let e ← forallBoundedTelescope casesOnInfo.type info.numParams fun params t =>
     forallBoundedTelescope t (some 1) fun _ t => -- ignore motive
     forallBoundedTelescope t (some (info.numIndices + 1)) fun ism1 _ =>
     forallBoundedTelescope t (some (info.numIndices + 1)) fun ism2 _ => do
-      let motiveType ← mkForallFVars (ism1 ++ ism2) (mkSort v)
+      let motiveType ← mkForallFVars (ism1 ++ ism2) (mkSortH v h)
       withLocalDecl `motive .implicit motiveType fun motive => do
 
       let altTypes ← info.ctors.toArray.mapIdxM fun i ctorName => do
@@ -65,7 +71,7 @@ public def mkCasesOnSameCtorHet (declName : Name) (indName : Name) : MetaM Unit 
       let heqType' ← mkEq ctorApp2 ctorApp1
       withLocalDeclD `h heqType fun heq => do
         let motive1 ← mkLambdaFVars ism1 (← mkArrow heqType' (mkAppN motive (ism1 ++ ism2)))
-        let e := mkConst casesOnInfo.name (v :: us)
+      let e := mkConst casesOnInfo.name levels
         let e := mkAppN e params
         let e := mkApp e motive1
         let e := mkAppN e ism1
@@ -78,17 +84,17 @@ public def mkCasesOnSameCtorHet (declName : Name) (indName : Name) : MetaM Unit 
             let is1 : Array Expr := ctorRet1.getAppArgs[info.numParams:]
             let ism1 := is1.push ctorApp1
             -- Here we let the typecheker reduce the `ctorIdx` application
-            let heq := mkApp3 (mkConst ``Eq [1]) (mkConst ``Nat) ctorApp2 (mkRawNatLit i)
+            let heq := mkApp3 (mkConst ``Eq [1, 0]) (mkConst ``Nat) ctorApp2 (mkRawNatLit i)
             withLocalDeclD `h heq fun h => do
               let motive2 ← mkLambdaFVars ism2 (mkAppN motive (ism1 ++ ism2))
               let alt ← forallTelescope ctorType fun zs2 _ => do
                 mkLambdaFVars zs2 <| mkAppN alts[i]! (zs1 ++ zs2)
               let e := if info.numCtors = 1 then
-                let casesOn := mkConst (mkCasesOnName indName) (v :: us)
-                mkAppN casesOn (params ++ #[motive2] ++ ism2 ++ #[alt])
-              else
-                let casesOn := mkConst (mkConstructorElimName indName ctorName) (v :: us)
-                mkAppN casesOn (params ++ #[motive2] ++ ism2 ++ #[h, alt])
+              let casesOn := mkConst (mkCasesOnName indName) levels
+              mkAppN casesOn (params ++ #[motive2] ++ ism2 ++ #[alt])
+            else
+              let casesOn := mkConst (mkConstructorElimName indName ctorName) levels
+              mkAppN casesOn (params ++ #[motive2] ++ ism2 ++ #[h, alt])
               mkLambdaFVars (zs1.push h) e
         let e := mkAppN e alts1
         let e := mkApp e (← mkEqSymm heq)
@@ -138,7 +144,12 @@ public def mkCasesOnSameCtor (declName : Name) (indName : Name) : MetaM Unit := 
   mkCasesOnSameCtorHet casesOnSameCtorHet indName
   let casesOnName := mkCasesOnName indName
   let casesOnInfo ← getConstVal casesOnName
-  let v::us := casesOnInfo.levelParams.map mkLevelParam | panic! "unexpected universe levels on `casesOn`"
+  let hlevel := info.type.getForallBody.sortHLevel!
+  let recLevels := getRecursorLevels casesOnInfo.levelParams info.levelParams hlevel
+  let v := recLevels.elimLevel
+  let h := recLevels.elimHLevel
+  let us := recLevels.indLevels
+  let levels := recLevels.allLevels
   forallBoundedTelescope casesOnInfo.type info.numParams fun params t =>
     let t0 := t.bindingBody! -- ignore motive
     forallBoundedTelescope t0 (some info.numIndices) fun is t =>
@@ -150,7 +161,7 @@ public def mkCasesOnSameCtor (declName : Name) (indName : Name) : MetaM Unit := 
       let ctorApp2 := mkAppN (mkConst (mkCtorIdxName indName) us) (params ++ is ++ #[x2])
       let heqType ← mkEq ctorApp1 ctorApp2
       withLocalDeclD `h heqType fun heq => do
-      let motiveType ← mkForallFVars (is ++ #[x1,x2,heq]) (mkSort v)
+      let motiveType ← mkForallFVars (is ++ #[x1,x2,heq]) (mkSortH v h)
       withLocalDecl `motive .implicit motiveType fun motive => do
 
       let (altTypes, altInfos) ← Array.unzip <$> info.ctors.toArray.mapIdxM fun i ctorName => do
@@ -176,7 +187,7 @@ public def mkCasesOnSameCtor (declName : Name) (indName : Name) : MetaM Unit := 
             let motive' ← mkForallFVars (newEqs1 ++ newEqs2) motive'
             let motive' ← mkLambdaFVars (ism1' ++ ism2') motive'
             return (motive', newRefls1 ++ newRefls2)
-        let casesOn2 := mkConst casesOnSameCtorHet (v :: us)
+        let casesOn2 := mkConst casesOnSameCtorHet levels
         let casesOn2 := mkAppN casesOn2 params
         let casesOn2 := mkApp casesOn2 motive'
         let casesOn2 := mkAppN casesOn2 (is ++ #[x1] ++ is ++ #[x2])

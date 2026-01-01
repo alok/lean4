@@ -847,7 +847,8 @@ private def mkFreshExprMVarImpl (type? : Option Expr) (kind : MetavarKind) (user
   | some type => mkFreshExprMVarCore type kind userName
   | none      => do
     let u ← mkFreshLevelMVar
-    let type ← mkFreshExprMVarCore (mkSort u) MetavarKind.natural Name.anonymous
+    let h ← mkFreshLevelMVar
+    let type ← mkFreshExprMVarCore (mkSortH u h) MetavarKind.natural Name.anonymous
     mkFreshExprMVarCore type kind userName
 
 def mkFreshExprMVar (type? : Option Expr) (kind := MetavarKind.natural) (userName := Name.anonymous) : MetaM Expr :=
@@ -855,7 +856,8 @@ def mkFreshExprMVar (type? : Option Expr) (kind := MetavarKind.natural) (userNam
 
 def mkFreshTypeMVar (kind := MetavarKind.natural) (userName := Name.anonymous) : MetaM Expr := do
   let u ← mkFreshLevelMVar
-  mkFreshExprMVar (mkSort u) kind userName
+  let h ← mkFreshLevelMVar
+  mkFreshExprMVar (mkSortH u h) kind userName
 
 /-- Low-level version of `MkFreshExprMVar` which allows users to create/reserve a `mvarId` using `mkFreshId`, and then later create
    the metavar using this method. -/
@@ -869,7 +871,8 @@ def mkFreshExprMVarWithId (mvarId : MVarId) (type? : Option Expr := none) (kind 
   | some type => mkFreshExprMVarWithIdCore mvarId type kind userName
   | none      => do
     let u ← mkFreshLevelMVar
-    let type ← mkFreshExprMVar (mkSort u)
+    let h ← mkFreshLevelMVar
+    let type ← mkFreshExprMVar (mkSortH u h)
     mkFreshExprMVarWithIdCore mvarId type kind userName
 
 def mkFreshLevelMVars (num : Nat) : MetaM (List Level) :=
@@ -2322,7 +2325,7 @@ private def exposeRelevantUniverses (e : Expr) (p : Level → Bool) : Expr :=
   e.replace fun e =>
     match e with
     | .const _ us => if us.any p then some (e.setPPUniverses true) else none
-    | .sort u     => if p u then some (e.setPPUniverses true) else none
+    | .sort u h   => if p u || p h then some (e.setPPUniverses true) else none
     | _           => none
 
 private def mkLevelErrorMessageCore (header : String) (entry : PostponedEntry) : MetaM MessageData := do

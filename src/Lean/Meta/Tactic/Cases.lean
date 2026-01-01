@@ -30,10 +30,11 @@ private def mkEqAndProof (lhs rhs : Expr) : MetaM (Expr × Expr) := do
   let lhsType ← inferType lhs
   let rhsType ← inferType rhs
   let u       ← getLevel lhsType
+  let h       ← getHLevel lhsType
   if (← isDefEq lhsType rhsType) then
-    pure (mkApp3 (mkConst ``Eq [u]) lhsType lhs rhs, mkApp2 (mkConst ``Eq.refl [u]) lhsType lhs)
+    pure (mkApp3 (mkConst ``Eq [u, h]) lhsType lhs rhs, mkApp2 (mkConst ``Eq.refl [u, h]) lhsType lhs)
   else
-    pure (mkApp4 (mkConst ``HEq [u]) lhsType lhs rhsType rhs, mkApp2 (mkConst ``HEq.refl [u]) lhsType lhs)
+    pure (mkApp4 (mkConst ``HEq [u, h]) lhsType lhs rhsType rhs, mkApp2 (mkConst ``HEq.refl [u, h]) lhsType lhs)
 
 partial def withNewEqs (targets targetsNew : Array Expr) (k : Array Expr → Array Expr → MetaM α) : MetaM α :=
   let rec loop (i : Nat) (newEqs : Array Expr) (newRefls : Array Expr) := do

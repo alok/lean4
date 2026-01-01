@@ -28,10 +28,10 @@ structure MonadInfo where
   v : Level
   /-- The cached `PUnit` expression. -/
   cachedPUnit : Expr :=
-    if u matches .zero then mkConst ``Unit else mkConst ``PUnit [mkLevelSucc u]
+    if u matches .zero then mkConst ``Unit else mkConst ``PUnit [mkLevelSucc u, levelZero]
   /-- The cached `PUnit.unit` expression. -/
   cachedPUnitUnit : Expr :=
-    if u matches .zero then mkConst ``Unit.unit else mkConst ``PUnit.unit [mkLevelSucc u]
+    if u matches .zero then mkConst ``Unit.unit else mkConst ``PUnit.unit [mkLevelSucc u, levelZero]
 
 -- Same pattern as for `Methods`/`MethodsRef` in `SimpM`.
 private opaque ContInfoRefPointed : NonemptyType.{0}

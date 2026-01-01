@@ -23,7 +23,7 @@ private def mkNonemptyInstance (declName : Name) : TermElabM Syntax.Command := d
     let arg := mkIdent (← mkFreshUserName (← x.fvarId!.getUserName).eraseMacroScopes)
     indArgs := indArgs.push arg
     binders := binders.push (← `(bracketedBinderF| {$arg}))
-    if let .sort u ← whnf (← inferType x) then
+    if let .sort u _ ← whnf (← inferType x) then
       if let .some _ ← decLevel? u then
         binders := binders.push (← `(bracketedBinderF| [Nonempty $arg]))
   let ctorTacs ← indVal.ctors.toArray.mapM fun ctor =>

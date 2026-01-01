@@ -42,7 +42,7 @@ def isSupportedMatch (declName : Name) : MetaM (Option MatchKind) := do
     -- Check that motive is `EnumInductive → Sort u`
     let motive := xs[0]!
     let motiveType ← inferType motive
-    let some (.const domTypeName .., (.sort (.param ..))) := motiveType.arrow? | return none
+    let some (.const domTypeName .., (.sort (.param ..) _)) := motiveType.arrow? | return none
     if domTypeName != discrTypeName then return none
 
     -- Check that resulting type is `motive discr`

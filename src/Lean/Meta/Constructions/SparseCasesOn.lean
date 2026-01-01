@@ -10,6 +10,7 @@ prelude
 public import Lean.Meta.Basic
 import Lean.AddDecl
 import Lean.Meta.Constructions.CtorIdx
+import Lean.Meta.Constructions.RecursorLevels
 import Lean.Meta.AppBuilder
 import Lean.Meta.HasNotBit
 
@@ -76,11 +77,9 @@ public def mkSparseCasesOn (indName : Name) (ctors : Array Name) : MetaM Name :=
   let casesOnName := mkCasesOnName indName
   let casesOnInfo ← getConstInfo casesOnName
   let ctorIdxName := mkCtorIdxName indName
-
-  unless casesOnInfo.levelParams.length = indInfo.levelParams.length + 1 do
-    throwError "mkSparseCasesOn: unexpected number of universe parameters in `{.ofConstName casesOnName}`"
-  let _::lps := casesOnInfo.levelParams | unreachable!
-  let us := lps.map mkLevelParam
+  let hlevel := indInfo.type.getForallBody.sortHLevel!
+  let recLevels := getRecursorLevels casesOnInfo.levelParams indInfo.levelParams hlevel
+  let us := recLevels.indLevels
 
   let (value : Expr) ← forallTelescope casesOnInfo.type fun xs _ => do
     unless xs.size = indInfo.numParams + 1 + indInfo.numIndices + 1 + indInfo.ctors.length do

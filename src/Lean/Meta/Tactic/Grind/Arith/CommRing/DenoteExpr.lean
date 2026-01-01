@@ -85,7 +85,8 @@ def _root_.Lean.Grind.CommRing.Expr.denoteExpr' (vars : Array Expr) (e : RingExp
 
 private def mkEq (a b : Expr) : M Expr := do
   let r ← getRing
-  return mkApp3 (mkConst ``Eq [r.u.succ]) r.type a b
+  let h ← getHLevel r.type
+  return mkApp3 (mkConst ``Eq [r.u.succ, h]) r.type a b
 
 def EqCnstr.denoteExpr (c : EqCnstr) : M Expr := do
   mkEq (← c.p.denoteExpr) (← denoteNum 0)

@@ -122,9 +122,9 @@ private partial def processSumCasesOn (x F val : Expr) (k : (x : Expr) → (F : 
     let α := args[0]!
     let β := args[1]!
     let FDecl ← F.fvarId!.getDecl
-    let (motiveNew, u) ← lambdaTelescope args[2]! fun xs type => do
+    let (motiveNew, u, h) ← lambdaTelescope args[2]! fun xs type => do
       let type ← mkArrow (FDecl.type.replaceFVar x xs[0]!) type
-      return (← mkLambdaFVars xs type, ← getLevel type)
+      return (← mkLambdaFVars xs type, ← getLevel type, ← getHLevel type)
     let mkMinorNew (ctorName : Name) (minor : Expr) : TermElabM Expr :=
       lambdaBoundedTelescope minor 1 fun xs body => do
         let xNew := xs[0]!
@@ -142,13 +142,13 @@ private partial def processSumCasesOn (x F val : Expr) (k : (x : Expr) → (F : 
 private partial def processPSigmaCasesOn (x F val : Expr) (k : (F : Expr) → (val : Expr) → TermElabM Expr) : TermElabM Expr := do
   if x.isFVar && val.isAppOfArity ``PSigma.casesOn 5 && val.getArg! 3 == x && (val.getArg! 4).isLambda && (val.getArg! 4).bindingBody!.isLambda then
     let args := val.getAppArgs
-    let [_, u, v] := val.getAppFn.constLevels! | unreachable!
+    let [_, _, u, v] := val.getAppFn.constLevels! | unreachable!
     let α := args[0]!
     let β := args[1]!
     let FDecl ← F.fvarId!.getDecl
-    let (motiveNew, w) ← lambdaTelescope args[2]! fun xs type => do
+    let (motiveNew, w, h) ← lambdaTelescope args[2]! fun xs type => do
       let type ← mkArrow (FDecl.type.replaceFVar x xs[0]!) type
-      return (← mkLambdaFVars xs type, ← getLevel type)
+      return (← mkLambdaFVars xs type, ← getLevel type, ← getHLevel type)
     let minor ← lambdaTelescope args[4]! fun xs body => do
         let a := xs[0]!
         let xNew := xs[1]!

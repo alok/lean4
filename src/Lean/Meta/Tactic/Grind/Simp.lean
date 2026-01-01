@@ -78,7 +78,7 @@ def pushNewFact' (prop : Expr) (proof : Expr) (generation : Nat := 0) : GoalM Un
   let r ← preprocess prop
   let prop' := r.expr
   let proof := if let some h := r.proof? then
-    mkApp4 (mkConst ``Eq.mp [levelZero]) prop prop' h proof
+    mkApp4 (mkConst ``Eq.mp [levelZero, levelZero]) prop prop' h proof
   else
     proof
   trace[grind.debug.pushNewFact] "{prop} ==> {prop'}"

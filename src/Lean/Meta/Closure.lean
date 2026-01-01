@@ -196,7 +196,13 @@ partial def collectExprAux (e : Expr) : ClosureM Expr := do
   | Expr.letE _ t v b _  => return e.updateLetE! (← collect t) (← collect v) (← collect b)
   | Expr.app f a         => return e.updateApp! (← collect f) (← collect a)
   | Expr.mdata _ b       => return e.updateMData! (← collect b)
-  | Expr.sort u          => return e.updateSort! (← collectLevel u)
+  | Expr.sort u h        =>
+    let u' ← collectLevel u
+    let h' ← collectLevel h
+    if u == u' && h == h' then
+      return e
+    else
+      return mkSortH u' h'
   | Expr.const _ us      => return e.updateConst! (← us.mapM collectLevel)
   | Expr.mvar mvarId     =>
     let mvarDecl ← mvarId.getDecl

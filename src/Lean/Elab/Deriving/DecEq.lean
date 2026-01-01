@@ -242,8 +242,9 @@ def mkEnumOfNatThm (declName : Name) : MetaM Unit := do
   let ofNat     := mkConst (Name.mkStr declName "ofNat") levels
   let enumType  := mkConst declName levels
   let u ← getLevel enumType
-  let eqEnum    := mkApp (mkConst ``Eq [u]) enumType
-  let rflEnum   := mkApp (mkConst ``Eq.refl [u]) enumType
+  let h ← getHLevel enumType
+  let eqEnum    := mkApp (mkConst ``Eq [u, h]) enumType
+  let rflEnum   := mkApp (mkConst ``Eq.refl [u, h]) enumType
   let ctors := indVal.ctors
   withLocalDeclD `x enumType fun x => do
     let resultType := mkApp2 eqEnum (mkApp ofNat (mkApp ctorIdx x)) x

@@ -1254,7 +1254,7 @@ def getMkMatcherInputInContext (matcherApp : MatcherApp) (unfoldNamed : Bool) : 
       then mkLevelParam matcherConst.levelParams.toArray[idx]!
       else levelZero
     forallBoundedTelescope matcherType (some matcherInfo.numDiscrs) fun discrs _ => do
-    mkForallFVars discrs (mkConst ``PUnit [u])
+    mkForallFVars discrs (mkConst ``PUnit [u, levelZero])
 
   let matcherType ← instantiateForall matcherType matcherApp.discrs
   let lhss ← forallBoundedTelescope matcherType (some matcherApp.alts.size) fun alts _ =>

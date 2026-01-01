@@ -137,7 +137,12 @@ where
     | .bvar i ..    => return i < b.bvarIdx!
     | .fvar id ..   => return Name.lt id.name b.fvarId!.name
     | .mvar id ..   => return Name.lt id.name b.mvarId!.name
-    | .sort u ..    => return Level.normLt u b.sortLevel!
+    | .sort u ..    =>
+      let v := b.sortLevel!
+      if u == v then
+        return Level.normLt a.sortHLevel! b.sortHLevel!
+      else
+        return Level.normLt u v
     | .const n ..   => return Name.lt n b.constName! -- We ignore the levels
     | .lit v ..     => return Literal.lt v b.litValue!
     -- Composite

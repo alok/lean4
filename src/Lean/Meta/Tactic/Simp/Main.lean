@@ -358,7 +358,7 @@ def simpForall (e : Expr) : SimpM Result := withParent e do
         let q₁ := mkLambda e.bindingName! e.bindingInfo! p₁ e.bindingBody!
         let result ← withLocalDecl e.bindingName! e.bindingInfo! p₂ fun a => withNewLemmas #[a] do
           let prop := mkSort levelZero
-          let h₁_substr_a := mkApp6 (mkConst ``Eq.substr [levelOne]) prop (mkLambda `x .default prop (mkBVar 0)) p₂ p₁ h₁ a
+          let h₁_substr_a := mkApp6 (mkConst ``Eq.substr [levelOne, levelZero]) prop (mkLambda `x .default prop (mkBVar 0)) p₂ p₁ h₁ a
           let q_h₁_substr_a := e.bindingBody!.instantiate1 h₁_substr_a
           let rb ← simp q_h₁_substr_a
           let h₂ ← mkLambdaFVars #[a] (← rb.getProof)
@@ -556,12 +556,12 @@ private def SimpHaveResult.toResult (u : Level) (source : Expr) : SimpHaveResult
       proof? :=
         if modified then
           -- Add a type hint to convert back into `have` form.
-          some <| mkExpectedPropHint (expectedProp := mkApp3 (mkConst ``Eq [u]) exprType source exprResult) <|
+          some <| mkExpectedPropHint (expectedProp := mkApp3 (mkConst ``Eq [u, levelZero]) exprType source exprResult) <|
             -- Add in a second type hint, for use in an optimization to avoid zeta/beta reductions in the kernel
             -- The base case in `simpHaveTelescopeAux` detects this construction and uses `exprType`/`exprInit`
             -- to construct the `SimpHaveResult`.
             -- If the kernel were to support `have` forms of the congruence lemmas this would not be necessary.
-            mkExpectedPropHint (expectedProp := mkApp3 (mkConst ``Eq [u]) exprType exprInit expr) proof
+            mkExpectedPropHint (expectedProp := mkApp3 (mkConst ``Eq [u, levelZero]) exprType exprInit expr) proof
         else
           none }
 
@@ -675,7 +675,7 @@ where
         else
           -- If not modified, this must have been a non-transitively unused `have`, so no need for `dep` form.
           let proof := mkApp6 (mkConst ``have_unused' us) t exprType v expr expr
-            (mkApp2 (mkConst ``Eq.refl [info.level]) exprType expr)
+            (mkApp2 (mkConst ``Eq.refl [info.level, levelZero]) exprType expr)
           return { expr, exprType, exprInit, exprResult, proof, modified := true }
       else if fixed.getD i true then
         /-
@@ -701,7 +701,7 @@ where
               (mkLambda n .default t rb.exprInit) (mkLambda n .default t rb.expr) (mkLambda n .default t rb.proof)
             return { expr, exprType, exprInit, exprResult, proof, modified := true }
           else
-            let proof := mkApp2 (mkConst ``Eq.refl [info.level]) exprType expr
+            let proof := mkApp2 (mkConst ``Eq.refl [info.level, levelZero]) exprType expr
             return { expr, exprType, exprInit, exprResult, proof, modified := vModified }
       else
         /-
@@ -1146,14 +1146,14 @@ This method assumes `mvarId` is not assigned, and we are already using `mvarId`s
 def applySimpResult (mvarId : MVarId) (val : Expr) (type : Expr) (r : Simp.Result) (mayCloseGoal := true) : MetaM (Option (Expr × Expr)) := do
   if mayCloseGoal && r.expr.isFalse then
     match r.proof? with
-    | some eqProof => mvarId.assign (← mkFalseElim (← mvarId.getType) (mkApp4 (mkConst ``Eq.mp [levelZero]) type r.expr eqProof val))
+    | some eqProof => mvarId.assign (← mkFalseElim (← mvarId.getType) (mkApp4 (mkConst ``Eq.mp [levelZero, levelZero]) type r.expr eqProof val))
     | none => mvarId.assign (← mkFalseElim (← mvarId.getType) val)
     return none
   else
     match r.proof? with
     | some eqProof =>
       let u ← getLevel type
-      return some (mkApp4 (mkConst ``Eq.mp [u]) type r.expr eqProof val, r.expr)
+      return some (mkApp4 (mkConst ``Eq.mp [u, levelZero]) type r.expr eqProof val, r.expr)
     | none =>
       if r.expr != type then
         return some ((← mkExpectedTypeHint val r.expr), r.expr)

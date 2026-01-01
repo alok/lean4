@@ -18,7 +18,7 @@ def mkCheckGoalType (val type : Expr) : MetaM Expr := do
 
 def matchCheckGoalType (stx : Syntax) (goalType : Expr) : MetaM (Expr × Expr × Level) := do
   let u ← mkFreshLevelMVar
-  let type ← mkFreshExprMVar (some (.sort u))
+  let type ← mkFreshExprMVar (some (mkSort u))
   let val  ← mkFreshExprMVar (some type)
   let extType := mkAppN (.const ``CheckGoalType [u]) #[type, val]
   if !(← isDefEq goalType extType) then

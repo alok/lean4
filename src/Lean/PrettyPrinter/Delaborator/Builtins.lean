@@ -80,15 +80,30 @@ def delabMVar : Delab := do
 
 @[builtin_delab sort]
 def delabSort : Delab := do
-  let Expr.sort l ← getExpr | unreachable!
-  match l with
-  | Level.zero => `(Prop)
-  | Level.succ .zero => `(Type)
-  | _ =>
-    let mvars ← getPPOption getPPMVarsLevels
-    match l.dec with
-    | some l' => `(Type $(Level.quote l' (prec := max_prec) (mvars := mvars)))
-    | none    => `(Sort $(Level.quote l (prec := max_prec) (mvars := mvars)))
+  let Expr.sort l h ← getExpr | unreachable!
+  let mvars ← getPPOption getPPMVarsLevels
+  if h.isZero then
+    match l with
+    | Level.zero => `(Prop)
+    | Level.succ .zero => `(Type)
+    | _ =>
+      match l.dec with
+      | some l' => `(Type $(Level.quote l' (prec := max_prec) (mvars := mvars)))
+      | none    => `(Sort $(Level.quote l (prec := max_prec) (mvars := mvars)))
+  else
+    match l with
+    | Level.zero =>
+      `(Prop @ $(Level.quote h (prec := max_prec) (mvars := mvars)))
+    | Level.succ .zero =>
+      `(Type @ $(Level.quote h (prec := max_prec) (mvars := mvars)))
+    | _ =>
+      match l.dec with
+      | some l' =>
+        `(Type $(Level.quote l' (prec := max_prec) (mvars := mvars)) @
+          $(Level.quote h (prec := max_prec) (mvars := mvars)))
+      | none    =>
+        `(Sort $(Level.quote l (prec := max_prec) (mvars := mvars)) @
+          $(Level.quote h (prec := max_prec) (mvars := mvars)))
 
 /--
 Delaborator for `const` expressions.
@@ -828,7 +843,7 @@ where
     if i < hNames?.size then
       if let some name := hNames?[i]! then
         let n' ← getUnusedName name body
-        withLocalDecl n' .default (.sort levelZero) (kind := .implDetail) fun _ =>
+        withLocalDecl n' .default (mkSort levelZero) (kind := .implDetail) fun _ =>
           withDummyBinders hNames? body m (acc.push n')
       else
         withDummyBinders hNames? body m (acc.push none)

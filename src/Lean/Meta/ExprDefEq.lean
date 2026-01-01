@@ -1660,7 +1660,8 @@ private partial def isDefEqQuick (t s : Expr) : MetaM LBool := do
   let s ← consumeLetIfZeta s
   match t, s with
   | .lit  l₁,      .lit l₂     => return (l₁ == l₂).toLBool
-  | .sort u,       .sort v     => toLBoolM <| isLevelDefEqAux u v
+  | .sort u hu,    .sort v hv  =>
+    toLBoolM <| (isLevelDefEqAux u v <&&> isLevelDefEqAux hu hv)
   | .lam ..,       .lam ..     => if t == s then pure LBool.true else toLBoolM <| isDefEqBinding t s
   | .forallE ..,   .forallE .. => if t == s then pure LBool.true else toLBoolM <| isDefEqBinding t s
   -- | .mdata _ t _, s               => isDefEqQuick t s

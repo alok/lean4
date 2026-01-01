@@ -72,7 +72,7 @@ where
     return { levelNames, numMVars, expr := rhs }
 
   elabProp (xs : Array Expr) (term : Syntax) : TermElabM Expr := do
-    let e ← Term.elabTermAndSynthesize term (Expr.sort 0)
+    let e ← Term.elabTermAndSynthesize term (mkSort 0)
     let e ← instantiateMVars e
     if e.hasSyntheticSorry then
       throwErrorAt term "invalid proposition, it contains a synthetic `sorry`"

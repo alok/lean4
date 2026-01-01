@@ -257,7 +257,7 @@ def getKeyArgs (e : Expr) (isMatch root : Bool) :
       return (.other, #[])
     else
       return (.arrow, #[d, b])
-  | .bvar _ | .letE _ _ _ _ _ | .lam _ _ _ _ | .mdata _ _ | .app _ _ | .sort _ =>
+  | .bvar _ | .letE _ _ _ _ _ | .lam _ _ _ _ | .mdata _ _ | .app _ _ | .sort _ _ =>
     return (.other, #[])
 
 /-

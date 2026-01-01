@@ -312,7 +312,8 @@ def propagateEq (a b : Expr) (ra rb : RingExpr) (d : PolyDerivation) : RingM Uni
   let heq ← withProofContext do
     mkImpEqExprProof ra rb d
   let ring ← getRing
-  let eq := mkApp3 (mkConst ``Eq [.succ ring.u]) ring.type a b
+  let hlevel ← getHLevel ring.type
+  let eq := mkApp3 (mkConst ``Eq [.succ ring.u, hlevel]) ring.type a b
   pushEq a b <| mkExpectedPropHint heq eq
 
 /--
@@ -423,7 +424,8 @@ def mkEqIffProof (lhs rhs lhs' rhs' : RingExpr) : RingM Expr := do
   let ctx ← toContextExpr vars
   let h := mkApp2 (mkConst ``Grind.CommRing.eq_norm_expr [ring.u]) ring.type ring.commRingInst
   let h := mkApp6 h ctx (toExpr lhs) (toExpr rhs) (toExpr lhs') (toExpr rhs') eagerReflBoolTrue
-  let eqFn := mkApp (mkConst ``Eq [Level.succ ring.u]) ring.type
+  let hlevel ← getHLevel ring.type
+  let eqFn := mkApp (mkConst ``Eq [Level.succ ring.u, hlevel]) ring.type
   let eq   := mkApp2 eqFn (← lhs.denoteExpr' vars) (← rhs.denoteExpr' vars)
   let eq'  := mkApp2 eqFn (← lhs'.denoteExpr' vars) (← rhs'.denoteExpr' vars)
   let expected := mkPropEq eq eq'
@@ -438,7 +440,8 @@ def mkTermEqProof (e e' : RingExpr) : RingM Expr := do
   let ctx ← toContextExpr vars
   let h := mkApp2 (mkConst ``Grind.CommRing.Expr.eq_of_toPoly_eq [ring.u]) ring.type ring.commRingInst
   let h := mkApp4 h ctx (toExpr lhs) (toExpr lhs') eagerReflBoolTrue
-  let eqFn := mkApp (mkConst ``Eq [Level.succ ring.u]) ring.type
+  let hlevel ← getHLevel ring.type
+  let eqFn := mkApp (mkConst ``Eq [Level.succ ring.u, hlevel]) ring.type
   let expected := mkApp2 eqFn (← lhs.denoteExpr' vars) (← lhs'.denoteExpr' vars)
   return mkExpectedPropHint h expected
 
@@ -472,7 +475,8 @@ def mkNonCommEqIffProof (lhs rhs lhs' rhs' : RingExpr) : NonCommRingM Expr := do
   let ctx ← toContextExpr vars
   let h := mkApp2 (mkConst ``Grind.CommRing.eq_norm_expr_nc [ring.u]) ring.type ring.ringInst
   let h := mkApp6 h ctx (toExpr lhs) (toExpr rhs) (toExpr lhs') (toExpr rhs') eagerReflBoolTrue
-  let eqFn := mkApp (mkConst ``Eq [Level.succ ring.u]) ring.type
+  let hlevel ← getHLevel ring.type
+  let eqFn := mkApp (mkConst ``Eq [Level.succ ring.u, hlevel]) ring.type
   let eq   := mkApp2 eqFn (← lhs.denoteExpr' vars) (← rhs.denoteExpr' vars)
   let eq'  := mkApp2 eqFn (← lhs'.denoteExpr' vars) (← rhs'.denoteExpr' vars)
   let expected := mkPropEq eq eq'
@@ -487,7 +491,8 @@ def mkNonCommTermEqProof (e e' : RingExpr) : NonCommRingM Expr := do
   let ctx ← toContextExpr vars
   let h := mkApp2 (mkConst ``Grind.CommRing.Expr.eq_of_toPoly_nc_eq [ring.u]) ring.type ring.ringInst
   let h := mkApp4 h ctx (toExpr lhs) (toExpr lhs') eagerReflBoolTrue
-  let eqFn := mkApp (mkConst ``Eq [Level.succ ring.u]) ring.type
+  let hlevel ← getHLevel ring.type
+  let eqFn := mkApp (mkConst ``Eq [Level.succ ring.u, hlevel]) ring.type
   let expected := mkApp2 eqFn (← lhs.denoteExpr' vars) (← lhs'.denoteExpr' vars)
   return mkExpectedPropHint h expected
 
