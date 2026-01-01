@@ -343,12 +343,15 @@ inductive Expr where
   | mvar (mvarId : MVarId)
 
   /--
-  Used for `Type u`, `Sort u`, and `Prop`:
-  - `Prop` is represented as `.sort .zero`,
-  - `Sort u` as ``.sort (.param `u)``, and
-  - `Type u` as ``.sort (.succ (.param `u))``
+  Used for `Type u`, `Sort u`, and `Prop`, with an additional hierarchy level:
+  - `Prop` is represented as `.sort .zero .zero`,
+  - `Sort u` as ``.sort (.param `u) .zero``, and
+  - `Type u` as ``.sort (.succ (.param `u)) .zero``.
+
+  The second `Level` argument is the hierarchy level (`h`), used to stratify
+  universes for hierarchical/nonstandard reasoning.
   -/
-  | sort (u : Level)
+  | sort (u : Level) (h : Level)
 
   /--
   A (universe polymorphic) constant that has been defined earlier in the module or
@@ -389,7 +392,7 @@ inductive Expr where
   For example:
   - `forall x : Prop, x ∧ x`:
     ```lean
-    Expr.forallE `x (.sort .zero)
+    Expr.forallE `x (.sort .zero .zero)
       (.app (.app (.const `And []) (.bvar 0)) (.bvar 0)) .default
     ```
   - `Nat → Bool`:
@@ -465,7 +468,11 @@ with
   data : @& Expr → Data
     | .const n lvls => mkData (mixHash 5 <| mixHash (hash n) (hash lvls)) 0 0 false false (lvls.any Level.hasMVar) (lvls.any Level.hasParam)
     | .bvar idx => mkData (mixHash 7 <| hash idx) (idx+1)
-    | .sort lvl => mkData (mixHash 11 <| hash lvl) 0 0 false false lvl.hasMVar lvl.hasParam
+    | .sort u h =>
+      let hIsZero := h.isZero
+      let hHash := if hIsZero then 0 else hash h
+      let hash := if hIsZero then mixHash 11 (hash u) else mixHash 11 <| mixHash (hash u) hHash
+      mkData hash 0 0 false false (u.hasMVar || h.hasMVar) (u.hasParam || h.hasParam)
     | .fvar fvarId => mkData (mixHash 13 <| hash fvarId) 0 0 true
     | .mvar fvarId => mkData (mixHash 17 <| hash fvarId) 0 0 false true
     | .mdata _m e =>
@@ -624,9 +631,13 @@ def Literal.typeEx : Literal → Expr := Literal.type
 def mkBVar (idx : Nat) : Expr :=
   .bvar idx
 
-/-- `.sort u` is now the preferred form. -/
+/-- `.sort u h` is now the preferred form with an explicit hierarchy level. -/
+def mkSortH (u : Level) (h : Level) : Expr :=
+  .sort u h
+
+/-- `.sort u .zero` is the default form. -/
 def mkSort (u : Level) : Expr :=
-  .sort u
+  .sort u levelZero
 
 /--
 `.fvar fvarId` is now the preferred form.
@@ -739,7 +750,7 @@ Recall that all theorems and definitions containing numeric literals are encoded
 @[export lean_expr_mk_bvar] def mkBVarEx : Nat → Expr := mkBVar
 @[export lean_expr_mk_fvar] def mkFVarEx : FVarId → Expr := mkFVar
 @[export lean_expr_mk_mvar] def mkMVarEx : MVarId → Expr := mkMVar
-@[export lean_expr_mk_sort] def mkSortEx : Level → Expr := mkSort
+@[export lean_expr_mk_sort] def mkSortEx : Level → Level → Expr := mkSortH
 @[export lean_expr_mk_const] def mkConstEx (c : Name) (lvls : List Level) : Expr := mkConst c lvls
 @[export lean_expr_mk_app] def mkAppEx : Expr → Expr → Expr := mkApp
 @[export lean_expr_mk_lambda] def mkLambdaEx (n : Name) (d b : Expr) (bi : BinderInfo) : Expr := mkLambda n bi d b
@@ -808,17 +819,17 @@ def isSort : Expr → Bool
 
 /-- Return `true` if the given expression is of the form `.sort (.succ ..)`. -/
 def isType : Expr → Bool
-  | sort (.succ ..) => true
+  | sort (.succ ..) _ => true
   | _ => false
 
 /-- Return `true` if the given expression is of the form `.sort (.succ .zero)`. -/
 def isType0 : Expr → Bool
-  | sort (.succ .zero) => true
+  | sort (.succ .zero) _ => true
   | _ => false
 
 /-- Return `true` if the given expression is `.sort .zero` -/
 def isProp : Expr → Bool
-  | sort .zero => true
+  | sort .zero _ => true
   | _ => false
 
 /-- Return `true` if the given expression is a bound variable. -/
@@ -866,7 +877,7 @@ Return `true` if the given expression is a free variable with the given id.
 Examples:
 - `isFVarOf (.fvar id) id` is `true`
 - ``isFVarOf (.fvar id) id'`` is `false`
-- ``isFVarOf (.sort levelZero) id`` is `false`
+- ``isFVarOf (.sort levelZero levelZero) id`` is `false`
 -/
 def isFVarOf : Expr → FVarId → Bool
   | .fvar fvarId, fvarId' => fvarId == fvarId'
@@ -937,8 +948,12 @@ def appFn (e : Expr) (h : e.isApp) : Expr :=
   | .app f _, _ => f
 
 def sortLevel! : Expr → Level
-  | sort u => u
+  | sort u _ => u
   | _      => panic! "sort expected"
+
+def sortHLevel! : Expr → Level
+  | sort _ h => h
+  | _        => panic! "sort expected"
 
 def litValue! : Expr → Literal
   | lit v => v
@@ -1839,14 +1854,14 @@ def updateConst! (e : Expr) (newLevels : List Level) : Expr :=
 
 @[inline] private unsafe def updateSort!Impl (e : Expr) (u' : Level) : Expr :=
   match e with
-  | sort u => if ptrEq u u' then e else mkSort u'
-  | _      => panic! "level expected"
+  | sort u h => if ptrEq u u' then e else mkSortH u' h
+  | _        => panic! "level expected"
 
 @[implemented_by updateSort!Impl]
 def updateSort! (e : Expr) (newLevel : Level) : Expr :=
   match e with
-  | sort _ => mkSort newLevel
-  | _      => panic! "level expected"
+  | sort _ h => mkSortH newLevel h
+  | _        => panic! "level expected"
 
 @[inline] private unsafe def updateMData!Impl (e : Expr) (newExpr : Expr) : Expr :=
   match e with
@@ -2241,13 +2256,13 @@ def mkNatLE (a b : Expr) : Expr :=
   mkApp2 natLEPred a b
 
 private def natEqPred : Expr :=
-  mkApp (mkConst ``Eq [1]) Nat.mkType
+  mkApp (mkConst ``Eq [1, 0]) Nat.mkType
 
 /-- Given `a b : Nat`, return `a = b` -/
 def mkNatEq (a b : Expr) : Expr :=
   mkApp2 natEqPred a b
 
-private def propEq := mkApp (mkConst ``Eq [1]) (mkSort 0)
+private def propEq := mkApp (mkConst ``Eq [1, 0]) (mkSort 0)
 /-- Given `a b : Prop`, returns `a = b` -/
 def mkPropEq (a b : Expr) : Expr :=
   mkApp2 propEq a b
@@ -2356,7 +2371,7 @@ def mkIntLT (a b : Expr) : Expr :=
   mkApp2 intLTPred a b
 
 private def intEqPred : Expr :=
-  mkApp (mkConst ``Eq [1]) Int.mkType
+  mkApp (mkConst ``Eq [1, 0]) Int.mkType
 
 /-- Given `a b : Int`, returns `a = b` -/
 def mkIntEq (a b : Expr) : Expr :=
@@ -2375,15 +2390,15 @@ def mkIntLit (n : Int) : Expr :=
     r
 
 def reflBoolTrue : Expr :=
-  mkApp2 (mkConst ``Eq.refl [levelOne]) (mkConst ``Bool) (mkConst ``Bool.true)
+  mkApp2 (mkConst ``Eq.refl [levelOne, levelZero]) (mkConst ``Bool) (mkConst ``Bool.true)
 
 def reflBoolFalse : Expr :=
-  mkApp2 (mkConst ``Eq.refl [levelOne]) (mkConst ``Bool) (mkConst ``Bool.false)
+  mkApp2 (mkConst ``Eq.refl [levelOne, levelZero]) (mkConst ``Bool) (mkConst ``Bool.false)
 
 def eagerReflBoolTrue : Expr :=
-  mkApp2 (mkConst ``eagerReduce [0]) (mkApp3 (mkConst ``Eq [1]) (mkConst ``Bool) (mkConst ``Bool.true) (mkConst ``Bool.true)) reflBoolTrue
+  mkApp2 (mkConst ``eagerReduce [0]) (mkApp3 (mkConst ``Eq [1, 0]) (mkConst ``Bool) (mkConst ``Bool.true) (mkConst ``Bool.true)) reflBoolTrue
 
 def eagerReflBoolFalse : Expr :=
-  mkApp2 (mkConst ``eagerReduce [0]) (mkApp3 (mkConst ``Eq [1]) (mkConst ``Bool) (mkConst ``Bool.false) (mkConst ``Bool.false)) reflBoolFalse
+  mkApp2 (mkConst ``eagerReduce [0]) (mkApp3 (mkConst ``Eq [1, 0]) (mkConst ``Bool) (mkConst ``Bool.false) (mkConst ``Bool.false)) reflBoolFalse
 
 end Lean

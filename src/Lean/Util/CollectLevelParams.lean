@@ -53,7 +53,7 @@ mutual
     | .app f a         => visitExpr a ∘ visitExpr f
     | .mdata _ b       => visitExpr b
     | .const _ us      => visitLevels us
-    | .sort u          => visitLevel u
+    | .sort u h        => visitLevel h ∘ visitLevel u
     | _                => id
 end
 

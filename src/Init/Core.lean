@@ -15,7 +15,7 @@ set_option linter.missingDocs true -- keep it documented
 
 @[expose] section
 
-universe u v w
+universe u v w h
 
 /--
 `inline (f x)` is an indication to the compiler to inline the definition of `f`
@@ -168,7 +168,7 @@ instance thunkCoe : CoeTail α (Thunk α) where
   coe a := ⟨fun _ => a⟩
 
 /-- A variation on `Eq.ndrec` with the equality argument first. -/
-abbrev Eq.ndrecOn.{u1, u2} {α : Sort u2} {a : α} {motive : α → Sort u1} {b : α} (h : a = b) (m : motive a) : motive b :=
+abbrev Eq.ndrecOn.{u1, u2, h1, h2} {α : Sort u2 @ h1} {a : α} {motive : α → Sort u1 @ h2} {b : α} (h : a = b) (m : motive a) : motive b :=
   Eq.ndrec m h
 
 /-! # definitions  -/
@@ -178,7 +178,7 @@ If and only if, or logical bi-implication. `a ↔ b` means that `a` implies `b` 
 By `propext`, this implies that `a` and `b` are equal and hence any expression involving `a`
 is equivalent to the corresponding expression with `b` instead.
 -/
-structure Iff (a b : Prop) : Prop where
+structure Iff (a b : Prop @ h) : Prop @ h where
   /-- If `a → b` and `b → a` then `a` and `b` are equivalent. -/
   intro ::
   /-- Modus ponens for if and only if. If `a ↔ b` and `a`, then `b`. -/
@@ -328,7 +328,7 @@ example (h : ∃ x : Nat, x = x) : True :=
   trivial
 ```
 -/
-inductive Exists {α : Sort u} (p : α → Prop) : Prop where
+inductive Exists {α : Sort u @ h} (p : α → Prop @ h) : Prop @ h where
   /-- Existential introduction. If `a : α` and `h : p a`,
   then `⟨a, h⟩` is a proof that `∃ x : α, p x`. -/
   | intro (w : α) (h : p w) : Exists p
@@ -918,22 +918,22 @@ theorem beq_false_of_ne [BEq α] [LawfulBEq α] {a b : α} (h : a ≠ b) : (a ==
   Bool.of_not_eq_true this
 
 section
-variable {α β φ : Sort u} {a a' : α} {b b' : β} {c : φ}
+variable {α β φ : Sort u @ h} {a a' : α} {b b' : β} {c : φ}
 
 /-- Non-dependent recursor for `HEq` -/
-noncomputable def HEq.ndrec.{u1, u2} {α : Sort u2} {a : α} {motive : {β : Sort u2} → β → Sort u1} (m : motive a) {β : Sort u2} {b : β} (h : a ≍ b) : motive b :=
+noncomputable def HEq.ndrec.{u1, u2, h1, h2} {α : Sort u2 @ h1} {a : α} {motive : {β : Sort u2 @ h1} → β → Sort u1 @ h2} (m : motive a) {β : Sort u2 @ h1} {b : β} (h : a ≍ b) : motive b :=
   h.rec m
 
 /-- `HEq.ndrec` variant -/
-noncomputable def HEq.ndrecOn.{u1, u2} {α : Sort u2} {a : α} {motive : {β : Sort u2} → β → Sort u1} {β : Sort u2} {b : β} (h : a ≍ b) (m : motive a) : motive b :=
+noncomputable def HEq.ndrecOn.{u1, u2, h1, h2} {α : Sort u2 @ h1} {a : α} {motive : {β : Sort u2 @ h1} → β → Sort u1 @ h2} {β : Sort u2 @ h1} {b : β} (h : a ≍ b) (m : motive a) : motive b :=
   h.rec m
 
 /-- `HEq.ndrec` variant -/
-noncomputable def HEq.elim {α : Sort u} {a : α} {p : α → Sort v} {b : α} (h₁ : a ≍ b) (h₂ : p a) : p b :=
+noncomputable def HEq.elim {α : Sort u @ h} {a : α} {p : α → Sort v @ h'} {b : α} (h₁ : a ≍ b) (h₂ : p a) : p b :=
   eq_of_heq h₁ ▸ h₂
 
 /-- Substitution with heterogeneous equality. -/
-theorem HEq.subst {p : (T : Sort u) → T → Prop} (h₁ : a ≍ b) (h₂ : p α a) : p β b :=
+theorem HEq.subst {p : (T : Sort u @ h) → T → Prop @ h'} (h₁ : a ≍ b) (h₂ : p α a) : p β b :=
   HEq.ndrecOn h₁ h₂
 
 /-- Heterogeneous equality is symmetric. -/
@@ -1550,7 +1550,7 @@ The standard logical connectives provably respect propositional extensionality. 
 needed for higher order expressions like `P a` where `P : Prop → Prop` is unknown, as well as for
 equality. Propositional extensionality is intuitionistically valid.
 -/
-axiom propext {a b : Prop} : (a ↔ b) → a = b
+axiom propext {a b : Prop @ h} : (a ↔ b) → a = b
 
 theorem Eq.propIntro {a b : Prop} (h₁ : a → b) (h₂ : b → a) : a = b :=
   propext <| Iff.intro h₁ h₂

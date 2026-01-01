@@ -135,11 +135,13 @@ expr type_checker::infer_pi(expr const & _e, bool infer_only) {
     flet<local_ctx> save_lctx(m_lctx, m_lctx);
     buffer<expr> fvars;
     buffer<level> us;
+    buffer<level> hs;
     expr e = _e;
     while (is_pi(e)) {
         expr d  = instantiate_rev(binding_domain(e), fvars.size(), fvars.data());
         expr t1 = ensure_sort_core(infer_type_core(d, infer_only), d);
         us.push_back(sort_level(t1));
+        hs.push_back(sort_hlevel(t1));
         expr fvar  = m_lctx.mk_local_decl(m_st->m_ngen, binding_name(e), d, binding_info(e));
         fvars.push_back(fvar);
         e = binding_body(e);
@@ -147,12 +149,14 @@ expr type_checker::infer_pi(expr const & _e, bool infer_only) {
     e = instantiate_rev(e, fvars.size(), fvars.data());
     expr s  = ensure_sort_core(infer_type_core(e, infer_only), e);
     level r = sort_level(s);
+    level h = sort_hlevel(s);
     unsigned i = fvars.size();
     while (i > 0) {
         --i;
         r = mk_imax(us[i], r);
+        h = mk_max(hs[i], h);
     }
-    return mk_sort(r);
+    return mk_sort(r, h);
 }
 
 /* Returns `true` if `e` is of the form `eagerReduce _ _` */
@@ -287,8 +291,11 @@ expr type_checker::infer_type_core(expr const & e, bool infer_only) {
     case expr_kind::BVar:
         lean_unreachable();  // LCOV_EXCL_LINE
     case expr_kind::Sort:
-        if (!infer_only) check_level(sort_level(e));
-        r = mk_sort(mk_succ(sort_level(e)));
+        if (!infer_only) {
+            check_level(sort_level(e));
+            check_level(sort_hlevel(e));
+        }
+        r = mk_sort(mk_succ(sort_level(e)), sort_hlevel(e));
         break;
     case expr_kind::Const:    r = infer_constant(e, infer_only);       break;
     case expr_kind::Lambda:   r = infer_lambda(e, infer_only);         break;
@@ -325,7 +332,8 @@ expr type_checker::ensure_pi(expr const & e, expr const & s) {
 
 /** \brief Return true iff \c e is a proposition */
 bool type_checker::is_prop(expr const & e) {
-    return whnf(infer_type(e)) == mk_Prop();
+    expr t = whnf(infer_type(e));
+    return is_sort(t) && is_zero(sort_level(t));
 }
 
 /** \brief Apply normalizer extensions to \c e.
@@ -736,7 +744,13 @@ lbool type_checker::quick_is_def_eq(expr const & t, expr const & s, bool use_has
         case expr_kind::Lambda: case expr_kind::Pi:
             return to_lbool(is_def_eq_binding(t, s));
         case expr_kind::Sort:
-            return to_lbool(is_def_eq(sort_level(t), sort_level(s)));
+            {
+                level const & ht = sort_hlevel(t);
+                level const & hs = sort_hlevel(s);
+                if (is_eqp(ht, hs) || (is_zero(ht) && is_zero(hs)))
+                    return to_lbool(is_def_eq(sort_level(t), sort_level(s)));
+                return to_lbool(is_def_eq(sort_level(t), sort_level(s)) && is_def_eq(ht, hs));
+            }
         case expr_kind::MData:
             return to_lbool(is_def_eq(mdata_expr(t), mdata_expr(s)));
         case expr_kind::MVar:

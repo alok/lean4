@@ -132,6 +132,7 @@ class add_inductive_fn {
     buffer<inductive_type> m_ind_types;
     buffer<unsigned>       m_nindices;
     level                  m_result_level;
+    level                  m_result_hlevel;
     /* m_lparams ==> m_levels */
     levels                 m_levels;
     /* We track whether the resultant universe cannot be zero for any
@@ -143,6 +144,7 @@ class add_inductive_fn {
     buffer<expr>           m_ind_cnsts;
 
     level                  m_elim_level;
+    level                  m_elim_hlevel;
     bool                   m_K_target;
 
     unsigned               m_nnested;
@@ -245,9 +247,11 @@ public:
             type = tc().ensure_sort(type);
 
             if (first) {
-                m_result_level = sort_level(type);
-                m_is_not_zero  = is_not_zero(m_result_level);
-            } else if (!is_equivalent(sort_level(type), m_result_level)) {
+                m_result_level  = sort_level(type);
+                m_result_hlevel = sort_hlevel(type);
+                m_is_not_zero   = is_not_zero(m_result_level);
+            } else if (!is_equivalent(sort_level(type), m_result_level) ||
+                       !is_equivalent(sort_hlevel(type), m_result_hlevel)) {
                 throw kernel_exception(m_env, "mutually inductive types must live in the same universe");
             }
 
@@ -436,7 +440,8 @@ public:
                         // the sort is ok IF
                         //   1- its level is <= inductive datatype level, OR
                         //   2- is an inductive predicate
-                        if (!(is_geq(m_result_level, sort_level(s)) || is_zero(m_result_level))) {
+                        if (!((is_geq(m_result_level, sort_level(s)) || is_zero(m_result_level)) &&
+                              is_geq(m_result_hlevel, sort_hlevel(s)))) {
                             throw kernel_exception(m_env, sstream() << "universe level of type_of(arg #" << (i + 1) << ") "
                                                    << "of '" << n << "' is too big for the corresponding inductive datatype");
                         }
@@ -536,7 +541,8 @@ public:
     /** \brief Initialize m_elim_level. */
     void init_elim_level() {
         if (elim_only_at_universe_zero()) {
-            m_elim_level = mk_level_zero();
+            m_elim_level  = mk_level_zero();
+            m_elim_hlevel = m_result_hlevel;
         } else {
             name u("u");
             int i = 1;
@@ -545,6 +551,18 @@ public:
                 i++;
             }
             m_elim_level = mk_univ_param(u);
+            if (is_zero(m_result_level)) {
+                name h("h");
+                i = 1;
+                while (std::find(m_lparams.begin(), m_lparams.end(), h) != m_lparams.end() ||
+                       (is_param(m_elim_level) && param_id(m_elim_level) == h)) {
+                    h = name("h").append_after(i);
+                    i++;
+                }
+                m_elim_hlevel = mk_univ_param(h);
+            } else {
+                m_elim_hlevel = m_result_hlevel;
+            }
         }
     }
 
@@ -606,7 +624,7 @@ public:
                 t = whnf(t);
             }
             info.m_major = mk_local_decl("t", mk_app(mk_app(m_ind_cnsts[d_idx], m_params), info.m_indices));
-            expr C_ty = mk_sort(m_elim_level);
+            expr C_ty = mk_sort(m_elim_level, m_elim_hlevel);
             C_ty      = mk_pi(info.m_major, C_ty);
             C_ty      = mk_pi(info.m_indices, C_ty);
             name C_name("motive");
@@ -675,18 +693,24 @@ public:
 
     /** \brief Return the levels for the recursor. */
     levels get_rec_levels() {
+        levels lvls = m_levels;
+        if (is_param(m_elim_hlevel) &&
+            std::find(m_lparams.begin(), m_lparams.end(), param_id(m_elim_hlevel)) == m_lparams.end())
+            lvls = levels(m_elim_hlevel, lvls);
         if (is_param(m_elim_level))
-            return levels(m_elim_level, m_levels);
-        else
-            return m_levels;
+            lvls = levels(m_elim_level, lvls);
+        return lvls;
     }
 
     /** \brief Return the level parameter names for the recursor. */
     names get_rec_lparams() {
+        names ns = m_lparams;
+        if (is_param(m_elim_hlevel) &&
+            std::find(m_lparams.begin(), m_lparams.end(), param_id(m_elim_hlevel)) == m_lparams.end())
+            ns = names(param_id(m_elim_hlevel), ns);
         if (is_param(m_elim_level))
-            return names(param_id(m_elim_level), m_lparams);
-        else
-            return m_lparams;
+            ns = names(param_id(m_elim_level), ns);
+        return ns;
     }
 
 

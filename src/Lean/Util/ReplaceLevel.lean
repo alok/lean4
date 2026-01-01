@@ -54,7 +54,11 @@ unsafe def replaceUnsafeM (f? : Level → Option Level) (size : USize) (e : Expr
         | Expr.letE _ t v b _    => cache i e <| e.updateLetE! (← visit t) (← visit v) (← visit b)
         | Expr.app f a           => cache i e <| e.updateApp! (← visit f) (← visit a)
         | Expr.proj _ _ b        => cache i e <| e.updateProj! (← visit b)
-        | Expr.sort u            => cache i e <| e.updateSort! (u.replace f?)
+        | Expr.sort u h          =>
+          let u' := u.replace f?
+          let h' := h.replace f?
+          let e' := if ptrEq u u' && ptrEq h h' then e else mkSortH u' h'
+          cache i e e'
         | Expr.const _ us        => cache i e <| e.updateConst! (us.map (Level.replace f?))
         | e                      => pure e
   visit e
@@ -78,7 +82,10 @@ partial def replaceLevel (f? : Level → Option Level) : Expr → Expr
   | e@(Expr.letE _ t v b _)    => let t := replaceLevel f? t; let v := replaceLevel f? v; let b := replaceLevel f? b; e.updateLetE! t v b
   | e@(Expr.app f a)           => let f := replaceLevel f? f; let a := replaceLevel f? a; e.updateApp! f a
   | e@(Expr.proj _ _ b)        => let b := replaceLevel f? b; e.updateProj! b
-  | e@(Expr.sort u)            => e.updateSort! (u.replace f?)
+  | e@(Expr.sort u h)          =>
+    let u' := u.replace f?
+    let h' := h.replace f?
+    if u == u' && h == h' then e else mkSortH u' h'
   | e@(Expr.const _ us)        => e.updateConst! (us.map (Level.replace f?))
   | e                          => e
 

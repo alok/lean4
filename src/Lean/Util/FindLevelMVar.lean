@@ -21,7 +21,7 @@ mutual
     if s.isSome || !e.hasLevelMVar then s else main p e s
 
   partial def main (p : LMVarId → Bool) : Expr → Visitor
-    | .sort l          => visitLevel p l
+    | .sort l h        => visitLevel p h ∘ visitLevel p l
     | .const _ ls      => ls.foldr (init := id) fun l acc => visitLevel p l ∘ acc
     | .forallE _ d b _ => visit p b ∘ visit p d
     | .lam _ d b _     => visit p b ∘ visit p d

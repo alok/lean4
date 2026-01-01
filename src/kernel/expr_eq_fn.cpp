@@ -61,7 +61,13 @@ class expr_eq_fn {
         case expr_kind::Lit:  return lit_value(a) == lit_value(b);
         case expr_kind::MVar: return mvar_name(a) == mvar_name(b);
         case expr_kind::FVar: return fvar_name(a) == fvar_name(b);
-        case expr_kind::Sort: return sort_level(a) == sort_level(b);
+        case expr_kind::Sort: {
+            level const & ha = sort_hlevel(a);
+            level const & hb = sort_hlevel(b);
+            if (is_eqp(ha, hb) || (is_zero(ha) && is_zero(hb)))
+                return sort_level(a) == sort_level(b);
+            return sort_level(a) == sort_level(b) && ha == hb;
+        }
         default: break;
         }
         if (root) {

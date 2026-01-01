@@ -21,7 +21,13 @@ where
   @[specialize] replaceFn (e : Expr) : Option Expr :=
     if !e.hasLevelParam then e else match e with
     | const _ us => e.updateConst! (us.map fun u => u.substParams s)
-    | sort u => e.updateSort! (u.substParams s)
+    | sort u h =>
+      let u' := u.substParams s
+      let h' := h.substParams s
+      if u == u' && h == h' then
+        e
+      else
+        mkSortH u' h'
     | _ => none
 
 private def getParamSubst : List Name → List Level → Name → Option Level

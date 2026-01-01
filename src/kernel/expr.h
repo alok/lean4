@@ -71,7 +71,7 @@ inductive Expr
 | bvar    : Nat → Expr                                -- bound variables
 | fvar    : Name → Expr                               -- free variables
 | mvar    : Name → Expr                               -- meta variables
-| sort    : Level → Expr                              -- Sort
+| sort    : Level → Level → Expr                      -- Sort (universe level, hierarchy level)
 | const   : Name → List Level → Expr                  -- constants
 | app     : Expr → Expr → Expr                        -- application
 | lam     : Name → BinderInfo → Expr → Expr → Expr    -- lambda abstraction
@@ -93,7 +93,7 @@ class expr : public object_ref {
     friend expr mk_fvar(name const & n);
     friend expr mk_const(name const & n, levels const & ls);
     friend expr mk_app(expr const & f, expr const & a);
-    friend expr mk_sort(level const & l);
+    friend expr mk_sort(level const & u, level const & h);
     friend expr mk_lambda(name const & n, expr const & t, expr const & e, binder_info bi);
     friend expr mk_pi(name const & n, expr const & t, expr const & e, binder_info bi);
     friend expr mk_let(name const & n, expr const & t, expr const & v, expr const & b);
@@ -223,7 +223,8 @@ inline expr mk_binding(expr_kind k, name const & n, expr const & t, expr const &
 expr mk_arrow(expr const & t, expr const & e);
 expr mk_let(name const & n, expr const & t, expr const & v, expr const & b, bool nondep);
 inline expr mk_let(name const & n, expr const & t, expr const & v, expr const & b) { return mk_let(n, t, v, b, false); };
-expr mk_sort(level const & l);
+expr mk_sort(level const & u, level const & h);
+inline expr mk_sort(level const & u) { return mk_sort(u, mk_level_zero()); }
 expr mk_Prop();
 expr mk_Type();
 // =======================================
@@ -244,6 +245,7 @@ inline bool            is_bvar(expr const & e, unsigned i)   { return is_bvar(e)
 inline name const &    fvar_name_core(object * o)            { lean_assert(is_fvar_core(o)); return static_cast<name const &>(cnstr_get_ref(o, 0)); }
 inline name const &    fvar_name(expr const & e)             { lean_assert(is_fvar(e)); return static_cast<name const &>(cnstr_get_ref(e, 0)); }
 inline level const &   sort_level(expr const & e)            { lean_assert(is_sort(e)); return static_cast<level const &>(cnstr_get_ref(e, 0)); }
+inline level const &   sort_hlevel(expr const & e)           { lean_assert(is_sort(e)); return static_cast<level const &>(cnstr_get_ref(e, 1)); }
 inline name const &    mvar_name_core(object * o)            { lean_assert(is_mvar_core(o)); return static_cast<name const &>(cnstr_get_ref(o, 0)); }
 inline name const &    mvar_name(expr const & e)             { lean_assert(is_mvar(e)); return static_cast<name const &>(cnstr_get_ref(e, 0)); }
 inline name const &    const_name(expr const & e)            { lean_assert(is_const(e)); return static_cast<name const &>(cnstr_get_ref(e, 0)); }
@@ -274,7 +276,8 @@ inline bool            is_shared(expr const & e)             { return !is_exclus
 expr update_app(expr const & e, expr const & new_fn, expr const & new_arg);
 expr update_binding(expr const & e, expr const & new_domain, expr const & new_body);
 expr update_binding(expr const & e, expr const & new_domain, expr const & new_body, binder_info bi);
-expr update_sort(expr const & e, level const & new_level);
+expr update_sort(expr const & e, level const & new_level, level const & new_hlevel);
+inline expr update_sort(expr const & e, level const & new_level) { return update_sort(e, new_level, sort_hlevel(e)); }
 expr update_const(expr const & e, levels const & new_levels);
 expr update_let(expr const & e, expr const & new_type, expr const & new_value, expr const & new_body);
 expr update_mdata(expr const & e, expr const & new_e);

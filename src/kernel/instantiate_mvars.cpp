@@ -340,8 +340,11 @@ public:
         case expr_kind::BVar:
         case expr_kind::Lit:  case expr_kind::FVar:
             lean_unreachable();
-        case expr_kind::Sort:
-            return cache(e, update_sort(e, visit_level(sort_level(e))), shared);
+        case expr_kind::Sort: {
+            level new_u = visit_level(sort_level(e));
+            level new_h = visit_level(sort_hlevel(e));
+            return cache(e, update_sort(e, new_u, new_h), shared);
+        }
         case expr_kind::Const:
             return cache(e, update_const(e, visit_levels(const_levels(e))), shared);
         case expr_kind::MVar:

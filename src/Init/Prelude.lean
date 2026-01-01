@@ -21,7 +21,7 @@ use `PUnit` in the desugaring of `do` notation, or in the pattern match compiler
 
 -/
 
-universe u v w
+universe u v w h
 
 /-- Marker for information that has been erased by the code generator. -/
 unsafe axiom lcErased : Type
@@ -45,7 +45,7 @@ difference for typeclass inference, since `T` and `T'` may have different
 typeclass instances on them. `show T' from e` is sugar for an `@id T' e`
 expression.
 -/
-@[inline] def id {α : Sort u} (a : α) : α := a
+@[inline] def id {α : Sort u @ h} (a : α) : α := a
 
 /--
 Function composition, usually written with the infix operator `∘`. A new function is created from
@@ -55,7 +55,7 @@ Examples:
  * `Function.comp List.reverse (List.drop 2) [3, 2, 4, 1] = [1, 4]`
  * `(List.reverse ∘ List.drop 2) [3, 2, 4, 1] = [1, 4]`
 -/
-@[inline] def Function.comp {α : Sort u} {β : Sort v} {δ : Sort w} (f : β → δ) (g : α → β) : α → δ :=
+@[inline] def Function.comp {α : Sort u @ h} {β : Sort v @ h} {δ : Sort w @ h} (f : β → δ) (g : α → β) : α → δ :=
   fun x => f (g x)
 
 /--
@@ -69,7 +69,7 @@ Examples:
  * `Function.const Bool 10 false = 10`
  * `Function.const String 10 "any string" = 10`
 -/
-@[inline] def Function.const {α : Sort u} (β : Sort v) (a : α) : β → α :=
+@[inline] def Function.const {α : Sort u @ h} (β : Sort v @ h) (a : α) : β → α :=
   fun _ => a
 
 /--
@@ -80,7 +80,7 @@ This is in contrast to `let x := v; b`, where the value of `x` is accessible to 
 This used to be the way `have`/`let_fun` syntax was encoded,
 and there used to be special support for `letFun` in WHNF and `simp`.
 -/
-def letFun {α : Sort u} {β : α → Sort v} (v : α) (f : (x : α) → β x) : β v := f v
+def letFun {α : Sort u @ h} {β : α → Sort v @ h} (v : α) (f : (x : α) → β x) : β v := f v
 
 set_option checkBinderAnnotations false in
 /--
@@ -99,7 +99,7 @@ example : foo.default = (default, default) :=
   rfl
 ```
 -/
-abbrev inferInstance {α : Sort u} [i : α] : α := i
+abbrev inferInstance {α : Sort u @ h} [i : α] : α := i
 
 set_option checkBinderAnnotations false in
 /-- `inferInstanceAs α` synthesizes a value of any target type by typeclass
@@ -113,7 +113,7 @@ does.) Example:
 #check inferInstanceAs (Inhabited Nat) -- Inhabited Nat
 ```
 -/
-abbrev inferInstanceAs (α : Sort u) [i : α] : α := i
+abbrev inferInstanceAs (α : Sort u @ h) [i : α] : α := i
 
 set_option bootstrap.inductiveCheckResultingUniverse false in
 /--
@@ -122,7 +122,7 @@ The canonical universe-polymorphic type with just one element.
 It should be used in contexts that require a type to be universe polymorphic, thus disallowing
 `Unit`.
 -/
-inductive PUnit : Sort u where
+inductive PUnit : Sort u @ h where
   /-- The only element of the universe-polymorphic unit type. -/
   | unit : PUnit
 
@@ -181,7 +181,7 @@ unsafe axiom lcUnreachable {α : Sort u} : α
 In other words, `True` is simply true, and has a canonical proof, `True.intro`
 For more information: [Propositional Logic](https://lean-lang.org/theorem_proving_in_lean4/propositions_and_proofs.html#propositional-logic)
 -/
-inductive True : Prop where
+inductive True : Prop @ h where
   /-- `True` is true, and `True.intro` (or more commonly, `trivial`)
   is the proof. -/
   | intro : True
@@ -194,7 +194,7 @@ This rule is sometimes called ex falso (short for ex falso sequitur quodlibet),
 or the principle of explosion.
 For more information: [Propositional Logic](https://lean-lang.org/theorem_proving_in_lean4/propositions_and_proofs.html#propositional-logic)
 -/
-inductive False : Prop
+inductive False : Prop @ h
 
 /--
 The empty type. It has no constructors.
@@ -211,7 +211,7 @@ The universe-polymorphic empty type, with no constructors.
 challenges with universe level unification. Prefer the type `Empty` or the proposition `False` when
 possible.
 -/
-inductive PEmpty : Sort u where
+inductive PEmpty : Sort u @ h where
 
 /--
 `Not p`, or `¬p`, is the negation of `p`. It is defined to be `p → False`,
@@ -220,7 +220,7 @@ so if your goal is `¬p` you can use `intro h` to turn the goal into
 and `(hn h).elim` will prove anything.
 For more information: [Propositional Logic](https://lean-lang.org/theorem_proving_in_lean4/propositions_and_proofs.html#propositional-logic)
 -/
-def Not (a : Prop) : Prop := a → False
+def Not (a : Prop @ h) : Prop @ h := a → False
 
 /--
 `False.elim : False → C` says that from `False`, any desired proposition
@@ -232,7 +232,7 @@ instruction: it is **undefined behavior** to run, but it will probably print
 "unreachable code". (You would need to construct a proof of false to run it
 anyway, which you can only do using `sorry` or unsound axioms.)
 -/
-@[macro_inline] def False.elim {C : Sort u} (h : False) : C :=
+@[macro_inline] def False.elim {C : Sort u @ h} (h : False) : C :=
   h.rec
 
 /--
@@ -242,7 +242,7 @@ example (hp : p) (hnp : ¬p) : q := absurd hp hnp
 ```
 For more information: [Propositional Logic](https://lean-lang.org/theorem_proving_in_lean4/propositions_and_proofs.html#propositional-logic)
 -/
-@[macro_inline] def absurd {a : Prop} {b : Sort v} (h₁ : a) (h₂ : Not a) : b :=
+@[macro_inline] def absurd {a : Prop @ h} {b : Sort v @ h} (h₁ : a) (h₂ : Not a) : b :=
   (h₂ h₁).rec
 
 /--
@@ -272,13 +272,13 @@ example (α : Type) (a b : α) (p : α → Prop)
 The triangle in the second presentation is a macro built on top of `Eq.subst` and `Eq.symm`, and you can enter it by typing `\t`.
 For more information: [Equality](https://lean-lang.org/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
-inductive Eq : α → α → Prop where
+inductive Eq {α : Sort u @ h} : α → α → Prop @ h where
   /-- `Eq.refl a : a = a` is reflexivity, the unique constructor of the
   equality type. See also `rfl`, which is usually used instead. -/
   | refl (a : α) : Eq a a
 
 /-- Non-dependent recursor for the equality type. -/
-@[simp] abbrev Eq.ndrec.{u1, u2} {α : Sort u2} {a : α} {motive : α → Sort u1} (m : motive a) {b : α} (h : Eq a b) : motive b :=
+@[simp] abbrev Eq.ndrec.{u1, u2, h1, h2} {α : Sort u2 @ h1} {a : α} {motive : α → Sort u1 @ h2} (m : motive a) {b : α} (h : Eq a b) : motive b :=
   h.rec m
 
 /--
@@ -290,7 +290,7 @@ the statement of the theorem is `a = a`, Lean will allow anything that is
 definitionally equal to that type. So, for instance, `2 + 2 = 4` is proven in
 Lean by `rfl`, because both sides are the same up to definitional equality.
 -/
-@[match_pattern] def rfl {α : Sort u} {a : α} : Eq a a := Eq.refl a
+@[match_pattern] def rfl {α : Sort u @ h} {a : α} : Eq a a := Eq.refl a
 
 /-- `id x = x`, as a `@[simp]` lemma. -/
 @[simp] theorem id_eq (a : α) : Eq (id a) a := rfl
@@ -308,7 +308,7 @@ hypotheses.
 
 For more information: [Equality](https://lean-lang.org/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
-theorem Eq.subst {α : Sort u} {motive : α → Prop} {a b : α} (h₁ : Eq a b) (h₂ : motive a) : motive b :=
+theorem Eq.subst {α : Sort u @ h} {motive : α → Prop @ h} {a b : α} (h₁ : Eq a b) (h₂ : motive a) : motive b :=
   Eq.ndrec h₂ h₁
 
 /--
@@ -319,7 +319,7 @@ Because this is in the `Eq` namespace, if you have a variable `h : a = b`,
 
 For more information: [Equality](https://lean-lang.org/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
-@[symm] theorem Eq.symm {α : Sort u} {a b : α} (h : Eq a b) : Eq b a :=
+@[symm] theorem Eq.symm {α : Sort u @ h} {a b : α} (h : Eq a b) : Eq b a :=
   h ▸ rfl
 
 /--
@@ -331,7 +331,7 @@ for `Eq.trans h₁ h₂`.
 
 For more information: [Equality](https://lean-lang.org/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
-theorem Eq.trans {α : Sort u} {a b c : α} (h₁ : Eq a b) (h₂ : Eq b c) : Eq a c :=
+theorem Eq.trans {α : Sort u @ h} {a b c : α} (h₁ : Eq a b) (h₂ : Eq b c) : Eq a c :=
   h₂ ▸ h₁
 
 /--
@@ -345,7 +345,7 @@ definitionally sometimes there isn't anything better you can do.
 
 For more information: [Equality](https://lean-lang.org/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
-@[macro_inline] def cast {α β : Sort u} (h : Eq α β) (a : α) : β :=
+@[macro_inline] def cast {α β : Sort u @ h} (h : Eq α β) (a : α) : β :=
   h.rec a
 
 /--
@@ -358,7 +358,7 @@ subterms.
 
 For more information: [Equality](https://lean-lang.org/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
-theorem congrArg {α : Sort u} {β : Sort v} {a₁ a₂ : α} (f : α → β) (h : Eq a₁ a₂) : Eq (f a₁) (f a₂) :=
+theorem congrArg {α : Sort u @ h} {β : Sort v @ h} {a₁ a₂ : α} (f : α → β) (h : Eq a₁ a₂) : Eq (f a₁) (f a₂) :=
   h ▸ rfl
 
 /--
@@ -368,11 +368,11 @@ statement is more complex in the dependent case.
 
 For more information: [Equality](https://lean-lang.org/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
-theorem congr {α : Sort u} {β : Sort v} {f₁ f₂ : α → β} {a₁ a₂ : α} (h₁ : Eq f₁ f₂) (h₂ : Eq a₁ a₂) : Eq (f₁ a₁) (f₂ a₂) :=
+theorem congr {α : Sort u @ h} {β : Sort v @ h} {f₁ f₂ : α → β} {a₁ a₂ : α} (h₁ : Eq f₁ f₂) (h₂ : Eq a₁ a₂) : Eq (f₁ a₁) (f₂ a₂) :=
   h₁ ▸ h₂ ▸ rfl
 
 /-- Congruence in the function part of an application: If `f = g` then `f a = g a`. -/
-theorem congrFun {α : Sort u} {β : α → Sort v} {f g : (x : α) → β x} (h : Eq f g) (a : α) : Eq (f a) (g a) :=
+theorem congrFun {α : Sort u @ h} {β : α → Sort v @ h} {f g : (x : α) → β x} (h : Eq f g) (a : α) : Eq (f a) (g a) :=
   h ▸ rfl
 
 /-!
@@ -481,17 +481,17 @@ and `f x` and `g y` are well typed it does not follow that `f x ≍ g y`.
 (This does follow if you have `f = g` instead.) However if `a` and `b` have
 the same type then `a = b` and `a ≍ b` are equivalent.
 -/
-inductive HEq : {α : Sort u} → α → {β : Sort u} → β → Prop where
+inductive HEq : {α : Sort u @ h} → α → {β : Sort u @ h} → β → Prop @ h where
   /-- Reflexivity of heterogeneous equality. -/
   | refl (a : α) : HEq a a
 
 /-- A version of `HEq.refl` with an implicit argument. -/
-@[match_pattern] protected def HEq.rfl {α : Sort u} {a : α} : HEq a a :=
+@[match_pattern] protected def HEq.rfl {α : Sort u @ h} {a : α} : HEq a a :=
   HEq.refl a
 
 /-- If two heterogeneously equal terms have the same type, then they are propositionally equal. -/
-theorem eq_of_heq {α : Sort u} {a a' : α} (h : HEq a a') : Eq a a' :=
-  have : (α β : Sort u) → (a : α) → (b : β) → HEq a b → (h : Eq α β) → Eq (cast h a) b :=
+theorem eq_of_heq {α : Sort u @ h} {a a' : α} (h : HEq a a') : Eq a a' :=
+  have : (α β : Sort u @ h) → (a : α) → (b : β) → HEq a b → (h : Eq α β) → Eq (cast h a) b :=
     fun _ _ _ _ h₁ =>
       h₁.rec (fun _ => rfl)
   this α α a a' h rfl
@@ -507,7 +507,7 @@ Elements of this type are pairs in which the first element is an `α` and the se
 
 Products nest to the right, so `(x, y, z) : α × β × γ` is equivalent to `(x, (y, z)) : α × (β × γ)`.
 -/
-structure Prod (α : Type u) (β : Type v) where
+structure Prod (α : Sort u @ h) (β : Sort v @ k) : Sort (max 1 (max u v)) @ max h k where
   /--
   Constructs a pair. This is usually written `(x, y)` instead of `Prod.mk x y`.
   -/
@@ -525,7 +525,8 @@ A product type in which the types may be propositions, usually written `α ×' �
 This type is primarily used internally and as an implementation detail of proof automation. It is
 rarely useful in hand-written code.
 -/
-structure PProd (α : Sort u) (β : Sort v) where
+set_option bootstrap.inductiveCheckResultingUniverse false in
+structure PProd (α : Sort u @ h) (β : Sort v @ k) : Sort (max u v) @ max h k where
   /-- The first element of a pair. -/
   fst : α
   /-- The second element of a pair. -/
@@ -536,7 +537,7 @@ A product type in which both `α` and `β` are in the same universe.
 
 It is called `MProd` is because it is the *universe-monomorphic* product type.
 -/
-structure MProd (α β : Type u) where
+structure MProd (α β : Sort u @ h) : Sort (max 1 u) @ h where
   /-- The first element of a pair. -/
   fst : α
   /-- The second element of a pair. -/
@@ -548,7 +549,7 @@ constructed and destructed like a pair: if `ha : a` and `hb : b` then
 `⟨ha, hb⟩ : a ∧ b`, and if `h : a ∧ b` then `h.left : a` and `h.right : b`.
 -/
 @[pp_using_anonymous_constructor]
-structure And (a b : Prop) : Prop where
+structure And (a b : Prop @ h) : Prop @ h where
   /-- `And.intro : a → b → a ∧ b` is the constructor for the And operation. -/
   intro ::
   /-- Extract the left conjunct from a conjunction. `h : a ∧ b` then
@@ -564,25 +565,25 @@ constructors for `Or`, called `Or.inl : a → a ∨ b` and `Or.inr : b → a ∨
 and you can use `match` or `cases` to destruct an `Or` assumption into the
 two cases.
 -/
-inductive Or (a b : Prop) : Prop where
+inductive Or (a b : Prop @ h) : Prop @ h where
   /-- `Or.inl` is "left injection" into an `Or`. If `h : a` then `Or.inl h : a ∨ b`. -/
   | inl (h : a) : Or a b
   /-- `Or.inr` is "right injection" into an `Or`. If `h : b` then `Or.inr h : a ∨ b`. -/
   | inr (h : b) : Or a b
 
 /-- Alias for `Or.inl`. -/
-theorem Or.intro_left (b : Prop) (h : a) : Or a b :=
+theorem Or.intro_left (b : Prop @ h) (h : a) : Or a b :=
   Or.inl h
 
 /-- Alias for `Or.inr`. -/
-theorem Or.intro_right (a : Prop) (h : b) : Or a b :=
+theorem Or.intro_right (a : Prop @ h) (h : b) : Or a b :=
   Or.inr h
 
 /--
 Proof by cases on an `Or`. If `a ∨ b`, and both `a` and `b` imply
 proposition `c`, then `c` is true.
 -/
-theorem Or.elim {c : Prop} (h : Or a b) (left : a → c) (right : b → c) : c :=
+theorem Or.elim {c : Prop @ h} (h : Or a b) (left : a → c) (right : b → c) : c :=
   match h with
   | Or.inl h => left h
   | Or.inr h => right h
@@ -625,7 +626,8 @@ Examples:
    contained in `xs`.
 -/
 @[pp_using_anonymous_constructor]
-structure Subtype {α : Sort u} (p : α → Prop) where
+set_option bootstrap.inductiveCheckResultingUniverse false in
+structure Subtype {α : Sort u @ h} (p : α → Prop @ h) : Sort u @ h where
   /--
   The value in the underlying type that satisfies the predicate.
   -/
@@ -645,7 +647,7 @@ A binder like `(x : α := default)` in a declaration is syntax sugar for
 `x : optParam α default`, and triggers the elaborator to attempt to use
 `default` to supply the argument if it is not supplied.
 -/
-@[reducible] def optParam (α : Sort u) (default : α) : Sort u := α
+@[reducible] def optParam (α : Sort u @ h) (default : α) : Sort u @ h := α
 
 /--
 Gadget for marking output parameters in type classes.
@@ -663,7 +665,7 @@ This expresses that in a term like `a ∈ s`, `s` might be a `Set α` or
 `List α` or some other type with a membership operation, and in each case
 the "member" type `α` is determined by looking at the container type.
 -/
-@[reducible] def outParam (α : Sort u) : Sort u := α
+@[reducible] def outParam (α : Sort u @ h) : Sort u @ h := α
 
 /--
 Gadget for marking semi output parameters in type classes.
@@ -686,11 +688,11 @@ This means that all `Coe` instances should provide a concrete value for `α`
 α (Option α)` is fine, but `Coe α Nat` is not since it does not provide a value
 for `α`.
 -/
-@[reducible] def semiOutParam (α : Sort u) : Sort u := α
+@[reducible] def semiOutParam (α : Sort u @ h) : Sort u @ h := α
 
 set_option linter.unusedVariables.funArgs false in
 /-- Auxiliary declaration used to implement named patterns like `x@h:p`. -/
-@[reducible] def namedPattern {α : Sort u} (x a : α) (h : Eq x a) : α := a
+@[reducible] def namedPattern {α : Sort u @ h} (x a : α) (h : Eq x a) : α := a
 
 /--
 Auxiliary axiom used to implement the `sorry` term and tactic.
@@ -934,7 +936,7 @@ Because `Decidable` carries data, when writing `@[simp]` lemmas which include a 
 on the LHS, it is best to use `{_ : Decidable p}` rather than `[Decidable p]` so that non-canonical
 instances can be found via unification rather than instance synthesis.
 -/
-class inductive Decidable (p : Prop) where
+class inductive Decidable (p : Prop @ h) where
   /-- Proves that `p` is decidable by supplying a proof of `¬p` -/
   | isFalse (h : Not p) : Decidable p
   /-- Proves that `p` is decidable by supplying a proof of `p` -/

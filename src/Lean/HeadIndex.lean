@@ -74,7 +74,7 @@ private def toHeadIndexQuick? : Expr → Option HeadIndex
   | fvar fvarId             => HeadIndex.fvar fvarId
   | const constName _       => HeadIndex.const constName
   | proj structName idx _   => HeadIndex.proj structName idx
-  | sort _                  => HeadIndex.sort
+  | sort _ _                => HeadIndex.sort
   | lam ..                  => HeadIndex.lam
   | forallE ..              => HeadIndex.forallE
   | lit v                   => HeadIndex.lit v
@@ -94,7 +94,7 @@ private partial def toHeadIndexSlow : Expr → HeadIndex
   | fvar fvarId             => HeadIndex.fvar fvarId
   | const constName _       => HeadIndex.const constName
   | proj structName idx _   => HeadIndex.proj structName idx
-  | sort _                  => HeadIndex.sort
+  | sort _ _                => HeadIndex.sort
   | lam ..                  => HeadIndex.lam
   | forallE ..              => HeadIndex.forallE
   | lit v                   => HeadIndex.lit v

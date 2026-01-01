@@ -112,20 +112,26 @@ expr update_result_sort(expr t, level const & l);
 expr instantiate_lparam (expr const & e, name const & p, level const & l);
 
 expr mk_true();
+expr mk_true(level const & h);
 bool is_true(expr const & e);
 expr mk_true_intro();
+expr mk_true_intro(level const & h);
 
 bool is_and(expr const & e, expr & arg1, expr & arg2);
 bool is_and(expr const & e);
 expr mk_and(expr const & a, expr const & b);
 
 expr mk_unit(level const & l);
+expr mk_unit(level const & l, level const & h);
 expr mk_unit_mk(level const & l);
+expr mk_unit_mk(level const & l, level const & h);
 expr mk_unit();
 expr mk_unit_mk();
 
 expr mk_unit(level const & l, bool prop);
 expr mk_unit_mk(level const & l, bool prop);
+expr mk_unit(level const & l, level const & h, bool prop);
+expr mk_unit_mk(level const & l, level const & h, bool prop);
 
 expr mk_nat_type();
 bool is_nat_type(expr const & e);
