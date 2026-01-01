@@ -22,6 +22,9 @@ Author: Leonardo de Moura
 #include "runtime/io.h"
 #include "runtime/hash.h"
 
+// StringZilla string operations (using serial implementation for simpler build)
+#include "stringzilla/stringzilla.h"
+
 #if defined(__GLIBC__) || defined(__APPLE__)
     #define LEAN_SUPPORTS_BACKTRACE 1
 #else
@@ -2040,20 +2043,23 @@ extern "C" LEAN_EXPORT object * lean_string_append(object * s1, object * s2) {
 }
 
 extern "C" LEAN_EXPORT bool lean_string_eq_cold(b_lean_obj_arg s1, b_lean_obj_arg s2) {
-    return std::memcmp(lean_string_cstr(s1), lean_string_cstr(s2), lean_string_size(s1)) == 0;
+    // Use StringZilla's optimized equality check (serial implementation)
+    return sz_equal_serial((sz_cptr_t)lean_string_cstr(s1), (sz_cptr_t)lean_string_cstr(s2), lean_string_size(s1)) == sz_true_k;
 }
 
 bool string_eq(object * s1, char const * s2) {
     if (lean_string_size(s1) != strlen(s2) + 1)
         return false;
-    return std::memcmp(lean_string_cstr(s1), s2, lean_string_size(s1)) == 0;
+    // Use StringZilla's optimized equality check (serial implementation)
+    return sz_equal_serial((sz_cptr_t)lean_string_cstr(s1), (sz_cptr_t)s2, lean_string_size(s1)) == sz_true_k;
 }
 
 extern "C" LEAN_EXPORT bool lean_string_lt(object * s1, object * s2) {
     size_t sz1 = lean_string_size(s1) - 1; // ignore null char in the end
     size_t sz2 = lean_string_size(s2) - 1; // ignore null char in the end
-    int r      = std::memcmp(lean_string_cstr(s1), lean_string_cstr(s2), std::min(sz1, sz2));
-    return r < 0 || (r == 0 && sz1 < sz2);
+    // Use StringZilla's optimized ordering (serial implementation)
+    sz_ordering_t order = sz_order_serial((sz_cptr_t)lean_string_cstr(s1), sz1, (sz_cptr_t)lean_string_cstr(s2), sz2);
+    return order == sz_less_k;
 }
 
 static obj_res string_to_list_core(std::string const & s, bool reverse = false) {
@@ -2383,7 +2389,8 @@ extern "C" LEAN_EXPORT uint8_t lean_string_memcmp(b_obj_arg s1, b_obj_arg s2, b_
 
     char const * lbase = lean_string_cstr(s1) + lean_unbox(lstart);
     char const * rbase = lean_string_cstr(s2) + lean_unbox(rstart);
-    return std::memcmp(lbase, rbase, lean_unbox(len)) == 0;
+    // Use StringZilla's optimized equality check (serial implementation)
+    return sz_equal_serial((sz_cptr_t)lbase, (sz_cptr_t)rbase, lean_unbox(len)) == sz_true_k;
 }
 
 size_t lean_slice_size(b_obj_arg slice) {
@@ -2410,8 +2417,9 @@ extern "C" LEAN_EXPORT uint64_t lean_slice_hash(b_obj_arg s) {
 extern "C" LEAN_EXPORT uint8_t lean_slice_dec_lt(object * s1, object * s2) {
     size_t sz1 = lean_slice_size(s1);
     size_t sz2 = lean_slice_size(s2);
-    int r = std::memcmp(lean_slice_base(s1), lean_slice_base(s2), std::min(sz1, sz2));
-    return r < 0 || (r == 0 && sz1 < sz2);
+    // Use StringZilla's optimized ordering (serial implementation)
+    sz_ordering_t order = sz_order_serial((sz_cptr_t)lean_slice_base(s1), sz1, (sz_cptr_t)lean_slice_base(s2), sz2);
+    return order == sz_less_k;
 }
 
 // =======================================
