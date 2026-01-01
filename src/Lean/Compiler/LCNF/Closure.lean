@@ -90,10 +90,15 @@ mutual
 
   partial def collectLetValue (e : LetValue) : ClosureM Unit := do
     match e with
-    | .erased | .lit .. => return ()
     | .proj _ _ fvarId => collectFVar fvarId
     | .const _ _ args => args.forM collectArg
     | .fvar fvarId args => collectFVar fvarId; args.forM collectArg
+    | .reset _ fvarId => collectFVar fvarId
+    | .reuse fvarId _ _ _ args => collectFVar fvarId; args.forM collectArg
+    | .set fvarId _ val => collectFVar fvarId; collectArg val
+    | .uset fvarId _ val => collectFVar fvarId; collectFVar val
+    | .sset fvarId _ _ val ty => collectFVar fvarId; collectFVar val; collectType ty
+    | .lit .. | .erased => return ()
 
   /--
   Collect dependencies in the given code. We need this function to be able

@@ -537,6 +537,7 @@ where
       -/
       return .top
     | .erased => return .top
+    | _ => return .top
 
   handleFunArg (arg : Arg) : InterpM Unit := do
     if let .fvar fvarId := arg then

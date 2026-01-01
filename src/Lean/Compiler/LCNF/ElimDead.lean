@@ -34,6 +34,11 @@ def collectLocalDeclsLetValue (s : UsedLocalDecls) (e : LetValue) : UsedLocalDec
   | .proj _ _ fvarId => s.insert fvarId
   | .const _ _ args => collectLocalDeclsArgs s args
   | .fvar fvarId args => collectLocalDeclsArgs (s.insert fvarId) args
+  | .reset _ fvarId => s.insert fvarId
+  | .reuse fvarId _ _ _ args => collectLocalDeclsArgs (s.insert fvarId) args
+  | .set fvarId _ val => collectLocalDeclsArg (s.insert fvarId) val
+  | .uset fvarId _ val => s.insert fvarId |>.insert val
+  | .sset fvarId _ _ val _ => s.insert fvarId |>.insert val
 
 namespace ElimDead
 

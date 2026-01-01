@@ -71,9 +71,13 @@ def visitArg (arg : Arg) : FindUsedM Unit := do
 
 def visitLetValue (e : LetValue) : FindUsedM Unit := do
   match e with
-  | .erased | .lit .. => return ()
   | .proj _ _ fvarId => visitFVar fvarId
   | .fvar fvarId args => visitFVar fvarId; args.forM visitArg
+  | .reset _ fvarId => visitFVar fvarId
+  | .reuse fvarId _ _ _ args => visitFVar fvarId; args.forM visitArg
+  | .set fvarId _ val => visitFVar fvarId; visitArg val
+  | .uset fvarId _ val => visitFVar fvarId; visitFVar val
+  | .sset fvarId _ _ val ty => visitFVar fvarId; visitFVar val; visitArg (.type ty)
   | .const declName _ args =>
     let decl := (← read).decl
     if declName == decl.name then
@@ -92,6 +96,7 @@ def visitLetValue (e : LetValue) : FindUsedM Unit := do
         visitFVar param.fvarId
     else
       args.forM visitArg
+  | .erased | .lit .. => return ()
 
 partial def visit (code : Code) : FindUsedM Unit := do
   match code with

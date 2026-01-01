@@ -105,7 +105,7 @@ mutual
 partial def evalLetValue (e : LetValue) : FixParamM Unit := do
   match e with
   | .const declName _ args => evalApp declName args
-  | _ => return ()
+  | .lit .. | .erased | .proj .. | .fvar .. | .reset .. | .reuse .. | .set .. | .uset .. | .sset .. => return ()
 
 partial def isEquivalentFunDecl? (decl : FunDecl) : FixParamM (Option Nat) := do
   let .let { fvarId, value := (.fvar funFvarId args), .. } k := decl.value | return none

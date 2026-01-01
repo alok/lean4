@@ -107,12 +107,16 @@ where
 
   addLetValueOccs (e : LetValue) : StateRefT FunDeclInfoMap CompilerM Unit := do
     match e with
-    | .erased | .lit .. | .proj .. => return ()
     | .const _ _ args => args.forM addArgOcc
     | .fvar fvarId args =>
       let some funDecl ← findFunDecl'? fvarId | return ()
       modify fun s => s.add funDecl.fvarId
       args.forM addArgOcc
+    | .proj _ _ fvarId | .reset _ fvarId => addArgOcc (.fvar fvarId)
+    | .reuse fvarId _ _ _ args => addArgOcc (.fvar fvarId); args.forM addArgOcc
+    | .set fvarId _ val => addArgOcc (.fvar fvarId); addArgOcc val
+    | .uset fvarId _ val | .sset fvarId _ _ val _ => addArgOcc (.fvar fvarId); addArgOcc (.fvar val)
+    | .lit .. | .erased => return ()
 
   go (code : Code) : StateRefT FunDeclInfoMap CompilerM Unit := do
     match code with

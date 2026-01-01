@@ -110,16 +110,15 @@ def Decl.pullLetDecls (decl : Decl) (isCandidateFn : LetDecl → FVarIdSet → C
 def Decl.pullInstances (decl : Decl) : CompilerM Decl :=
   decl.pullLetDecls fun letDecl candidates => do
     -- TODO: Correctly represent these dependencies so this check isn't required.
-    if let .const _ _ args := letDecl.value then
+    match letDecl.value with
+    | .const _ _ args | .fvar _ args | .reuse _ _ _ _ args =>
       if args.any (· == .erased) then return false
-    if let .fvar _ args := letDecl.value then
-      if args.any (· == .erased) then return false
+    | _ => pure ()
     if (← isClass? letDecl.type).isSome then
       return true
-    else if let .proj _ _ fvarId := letDecl.value then
-      return candidates.contains fvarId
-    else
-      return false
+    else match letDecl.value with
+      | .proj _ _ fvarId => return candidates.contains fvarId
+      | _ => return false
 
 def pullInstances : Pass :=
   .mkPerDeclaration `pullInstances Decl.pullInstances .base

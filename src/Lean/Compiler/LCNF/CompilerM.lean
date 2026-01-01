@@ -264,12 +264,33 @@ See `normExprImp`
 private partial def normLetValueImp (s : FVarSubst) (e : LetValue) (translator : Bool) : LetValue :=
   match e with
   | .erased | .lit .. => e
-  | .proj _ _ fvarId => match normFVarImp s fvarId translator with
-    | .fvar fvarId' => e.updateProj! fvarId'
+  | .proj typeName i fvarId => match normFVarImp s fvarId translator with
+    | .fvar fvarId' => .proj typeName i fvarId'
     | .erased => .erased
-  | .const _ _ args => e.updateArgs! (normArgsImp s args translator)
+  | .const declName us args => .const declName us (normArgsImp s args translator)
   | .fvar fvarId args => match normFVarImp s fvarId translator with
-    | .fvar fvarId' => e.updateFVar! fvarId' (normArgsImp s args translator)
+    | .fvar fvarId' => .fvar fvarId' (normArgsImp s args translator)
+    | .erased => .erased
+  | .reset n fvarId => match normFVarImp s fvarId translator with
+    | .fvar fvarId' => .reset n fvarId'
+    | .erased => .erased
+  | .reuse fvarId ctorName cidx updtHeader args => match normFVarImp s fvarId translator with
+    | .fvar fvarId' => .reuse fvarId' ctorName cidx updtHeader (normArgsImp s args translator)
+    | .erased => .erased
+  | .set fvarId i val => match normFVarImp s fvarId translator with
+    | .fvar fvarId' => .set fvarId' i (normArgImp s val translator)
+    | .erased => .erased
+  | .uset fvarId i val => match normFVarImp s fvarId translator with
+    | .fvar fvarId' =>
+      match normFVarImp s val translator with
+      | .fvar val' => .uset fvarId' i val'
+      | .erased => .erased
+    | .erased => .erased
+  | .sset fvarId n offset val ty => match normFVarImp s fvarId translator with
+    | .fvar fvarId' =>
+      match normFVarImp s val translator with
+      | .fvar val' => .sset fvarId' n offset val' (normExprImp s ty translator)
+      | .erased => .erased
     | .erased => .erased
 
 /--

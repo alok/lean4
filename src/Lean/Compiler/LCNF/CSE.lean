@@ -52,8 +52,8 @@ def hasNeverExtract (v : LetValue) : CompilerM Bool :=
   match v with
   | .const declName .. =>
     return hasNeverExtractAttribute (← getEnv) declName
-  | .lit _ | .erased | .proj .. | .fvar .. =>
-    return false
+  | .reset .. | .reuse .. | .set .. | .uset .. | .sset .. => return true
+  | .lit .. | .erased | .proj .. | .fvar .. => return false
 
 partial def _root_.Lean.Compiler.LCNF.Code.cse (shouldElimFunDecls : Bool) (code : Code) : CompilerM Code :=
   go code |>.run' {}

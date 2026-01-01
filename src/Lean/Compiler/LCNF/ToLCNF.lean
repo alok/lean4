@@ -128,7 +128,7 @@ where
                   let altJp ← mkAuxJpDecl jpParams jpValue
                   modify fun map => map.insert f altJp
                   return .jmp altJp.fvarId args
-          | _ => pure ()
+          | .lit .. | .erased | .proj .. | .const .. | .reset .. | .reuse .. | .set .. | .uset .. | .sset .. => pure ()
       let k ← go k
       if let some altJp := (← get).get? decl.fvarId then
         -- The new join point depends on this variable. Thus, we must insert it here

@@ -63,6 +63,11 @@ def eqvLetValue (e₁ e₂ : LetValue) : EqvM Bool := do
   | .proj s₁ i₁ x₁, .proj s₂ i₂ x₂ => pure (s₁ == s₂ && i₁ == i₂) <&&> eqvFVar x₁ x₂
   | .const n₁ us₁ as₁, .const n₂ us₂ as₂ => pure (n₁ == n₂ && us₁ == us₂) <&&> eqvArgs as₁ as₂
   | .fvar f₁ as₁, .fvar f₂ as₂ => eqvFVar f₁ f₂ <&&> eqvArgs as₁ as₂
+  | .reset n₁ f₁, .reset n₂ f₂ => pure (n₁ == n₂) <&&> eqvFVar f₁ f₂
+  | .reuse f₁ n₁ c₁ u₁ as₁, .reuse f₂ n₂ c₂ u₂ as₂ => pure (n₁ == n₂ && c₁ == c₂ && u₁ == u₂) <&&> eqvFVar f₁ f₂ <&&> eqvArgs as₁ as₂
+  | .set f₁ i₁ v₁, .set f₂ i₂ v₂ => pure (i₁ == i₂) <&&> eqvFVar f₁ f₂ <&&> eqvArg v₁ v₂
+  | .uset f₁ i₁ v₁, .uset f₂ i₂ v₂ => pure (i₁ == i₂) <&&> eqvFVar f₁ f₂ <&&> eqvFVar v₁ v₂
+  | .sset f₁ n₁ o₁ v₁ t₁, .sset f₂ n₂ o₂ v₂ t₂ => pure (n₁ == n₂ && o₁ == o₂) <&&> eqvFVar f₁ f₂ <&&> eqvFVar v₁ v₂ <&&> eqvType t₁ t₂
   | _, _ => return false
 
 @[inline] def withFVar (fvarId₁ fvarId₂ : FVarId) (x : EqvM α) : EqvM α :=

@@ -70,6 +70,12 @@ def LetValue.mapFVarM [MonadLiftT CompilerM m] [Monad m] (f : FVarId → m FVarI
   | .proj _ _ fvarId => return e.updateProj! (← f fvarId)
   | .const _ _ args => return e.updateArgs! (← args.mapM (TraverseFVar.mapFVarM f))
   | .fvar fvarId args => return e.updateFVar! (← f fvarId) (← args.mapM (TraverseFVar.mapFVarM f))
+  | .reset n fvarId => return .reset n (← f fvarId)
+  | .reuse fvarId ctorName cidx updtHeader args =>
+    return .reuse (← f fvarId) ctorName cidx updtHeader (← args.mapM (TraverseFVar.mapFVarM f))
+  | .set fvarId i val => return .set (← f fvarId) i (← TraverseFVar.mapFVarM f val)
+  | .uset fvarId i val => return .uset (← f fvarId) i (← f val)
+  | .sset fvarId n offset val ty => return .sset (← f fvarId) n offset (← f val) (← TraverseFVar.mapFVarM f ty)
 
 def LetValue.forFVarM [Monad m] (f : FVarId → m Unit) (e : LetValue) : m Unit := do
   match e with
@@ -77,6 +83,11 @@ def LetValue.forFVarM [Monad m] (f : FVarId → m Unit) (e : LetValue) : m Unit 
   | .proj _ _ fvarId => f fvarId
   | .const _ _ args => args.forM (TraverseFVar.forFVarM f)
   | .fvar fvarId args => f fvarId; args.forM (TraverseFVar.forFVarM f)
+  | .reset _ fvarId => f fvarId
+  | .reuse fvarId _ _ _ args => f fvarId; args.forM (TraverseFVar.forFVarM f)
+  | .set fvarId _ val => f fvarId; TraverseFVar.forFVarM f val
+  | .uset fvarId _ val => f fvarId; f val
+  | .sset fvarId _ _ val ty => f fvarId; f val; TraverseFVar.forFVarM f ty
 
 instance : TraverseFVar LetValue where
   mapFVarM := LetValue.mapFVarM

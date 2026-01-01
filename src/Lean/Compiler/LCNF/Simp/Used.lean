@@ -38,6 +38,11 @@ def markUsedLetValue (e : LetValue) : SimpM Unit := do
   | .proj _ _ fvarId => markUsedFVar fvarId
   | .const _ _ args => args.forM markUsedArg
   | .fvar fvarId args => markUsedFVar fvarId; args.forM markUsedArg
+  | .reset _ fvarId => markUsedFVar fvarId
+  | .reuse fvarId _ _ _ args => markUsedFVar fvarId; args.forM markUsedArg
+  | .set fvarId _ val => markUsedFVar fvarId; markUsedArg val
+  | .uset fvarId _ val => markUsedFVar fvarId; markUsedFVar val
+  | .sset fvarId _ _ val _ => markUsedFVar fvarId; markUsedFVar val
 
 /--
 Mark all free variables occurring on the right-hand side of the given let declaration as used.

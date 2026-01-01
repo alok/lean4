@@ -10,15 +10,24 @@ public import Lean.Compiler.ClosedTermCache
 public import Lean.Compiler.NeverExtractAttr
 public import Lean.Compiler.LCNF.Internalize
 public import Lean.Compiler.LCNF.ToExpr
+import Lean.Util.ForEachExpr
+import Lean.Util.ForEachExprWhere
 
 public section
 
 namespace Lean.Compiler.LCNF
 namespace ExtractClosed
 
-abbrev ExtractM := StateRefT (Array CodeDecl) CompilerM
+structure ExtractState where
+  visited : FVarIdHashSet := {}
+  decls   : Array CodeDecl := #[]
+
+abbrev ExtractM := StateRefT ExtractState CompilerM
 
 mutual
+
+partial def extractExpr (e : Expr) : ExtractM Unit :=
+  e.forEachWhere Expr.isFVar fun e => extractFVar e.fvarId!
 
 partial def extractLetValue (v : LetValue) : ExtractM Unit := do
   match v with
@@ -27,17 +36,26 @@ partial def extractLetValue (v : LetValue) : ExtractM Unit := do
     extractFVar fnVar
     args.forM extractArg
   | .proj _ _ baseVar => extractFVar baseVar
+  | .reset _ fvarId => extractFVar fvarId
+  | .reuse fvarId _ _ _ args => extractFVar fvarId; args.forM extractArg
+  | .set fvarId _ val => extractFVar fvarId; extractArg val
+  | .uset fvarId _ val => extractFVar fvarId; extractFVar val
+  | .sset fvarId _ _ val ty => extractFVar fvarId; extractFVar val; extractExpr ty
   | .lit _ | .erased => return ()
 
 partial def extractArg (arg : Arg) : ExtractM Unit := do
   match arg with
   | .fvar fvarId => extractFVar fvarId
-  | .type _ | .erased => return ()
+  | .type e => extractExpr e
+  | .erased => return ()
 
 partial def extractFVar (fvarId : FVarId) : ExtractM Unit := do
+  if (← get).visited.contains fvarId then
+    return ()
+  modify fun s => { s with visited := s.visited.insert fvarId }
   if let some letDecl ← findLetDecl? fvarId then
-    modify fun decls => decls.push (.let letDecl)
     extractLetValue letDecl.value
+    modify fun s => { s with decls := s.decls.push (.let letDecl) }
 
 end
 
@@ -57,6 +75,16 @@ abbrev M := ReaderT Context $ StateRefT State CompilerM
 
 mutual
 
+partial def shouldExtractExpr (e : Expr) : M Bool := do
+  if !e.hasFVar then return true
+  match e with
+  | .fvar fvarId => shouldExtractFVar fvarId
+  | .app f a => return (← shouldExtractExpr f) && (← shouldExtractExpr a)
+  | .lam _ d b _ | .forallE _ d b _ => return (← shouldExtractExpr d) && (← shouldExtractExpr b)
+  | .letE _ t v b _ => return (← shouldExtractExpr t) && (← shouldExtractExpr v) && (← shouldExtractExpr b)
+  | .mdata _ b | .proj _ _ b => shouldExtractExpr b
+  | _ => return true
+
 partial def shouldExtractLetValue (isRoot : Bool) (v : LetValue) : M Bool := do
   match v with
   | .lit (.str _) => return true
@@ -64,7 +92,6 @@ partial def shouldExtractLetValue (isRoot : Bool) (v : LetValue) : M Bool := do
     -- The old compiler's implementation used the runtime's `is_scalar` function, which
     -- introduces a dependency on the architecture used by the compiler.
     return !isRoot || v >= Nat.pow 2 63
-  | .lit _ | .erased => return !isRoot
   | .const name _ args =>
     if (← read).sccDecls.any (·.name == name) then
       return false
@@ -81,11 +108,18 @@ partial def shouldExtractLetValue (isRoot : Bool) (v : LetValue) : M Bool := do
     args.allM shouldExtractArg
   | .fvar fnVar args => return (← shouldExtractFVar fnVar) && (← args.allM shouldExtractArg)
   | .proj _ _ baseVar => shouldExtractFVar baseVar
+  | .reset _ fvarId => shouldExtractFVar fvarId
+  | .reuse fvarId _ _ _ args => return (← shouldExtractFVar fvarId) && (← args.allM shouldExtractArg)
+  | .set fvarId _ val => return (← shouldExtractFVar fvarId) && (← shouldExtractArg val)
+  | .uset fvarId _ val => return (← shouldExtractFVar fvarId) && (← shouldExtractFVar val)
+  | .sset fvarId _ _ val ty => return (← shouldExtractFVar fvarId) && (← shouldExtractFVar val) && (← shouldExtractExpr ty)
+  | .lit _ | .erased => return !isRoot
 
 partial def shouldExtractArg (arg : Arg) : M Bool := do
   match arg with
   | .fvar fvarId => shouldExtractFVar fvarId
-  | .type _ | .erased => return true
+  | .type e => shouldExtractExpr e
+  | .erased => return true
 
 partial def shouldExtractFVar (fvarId : FVarId) : M Bool := do
   if let some letDecl ← findLetDecl? fvarId then
@@ -101,10 +135,13 @@ partial def visitCode (code : Code) : M Code := do
   match code with
   | .let decl k =>
     if (← shouldExtractLetValue true decl.value) then
-      let ⟨_, decls⟩ ← extractLetValue decl.value |>.run {}
-      let decls := decls.reverse.push (.let decl)
+      let ⟨_, s⟩ ← extractLetValue decl.value |>.run {}
+      let decls := s.decls.push (.let decl)
       let decls ← decls.mapM Internalize.internalizeCodeDecl |>.run' {}
       let closedCode := attachCodeDecls decls (.return decls.back!.fvarId)
+      if closedCode.toExpr.hasFVar then
+        -- This should not happen if shouldExtractLetValue is correct
+        return code.updateLet! decl (← visitCode k)
       let closedExpr := closedCode.toExpr
       let env ← getEnv
       let name ← if let some closedTermName := getClosedTermName? env closedExpr then

@@ -71,6 +71,11 @@ def ppLetValue (e : LetValue) : M Format := do
   | .proj _ i fvarId => return f!"{← ppFVar fvarId} # {i}"
   | .fvar fvarId args => return f!"{← ppFVar fvarId}{← ppArgs args}"
   | .const declName us args => return f!"{← ppExpr (.const declName us)}{← ppArgs args}"
+  | .reset n fvarId => return f!"reset[{n}] {← ppFVar fvarId}"
+  | .reuse fvarId ctorName _ updtHeader args => return f!"reuse{if updtHeader then "!" else ""} {← ppFVar fvarId} as {ctorName}{← ppArgs args}"
+  | .set fvarId i val => return f!"set {← ppFVar fvarId} # {i} := {← ppArg val}"
+  | .uset fvarId i val => return f!"uset {← ppFVar fvarId} # {i} := {← ppFVar val}"
+  | .sset fvarId _ offset val _ => return f!"sset {← ppFVar fvarId} + {offset} := {← ppFVar val}"
 
 def ppParam (param : Param) : M Format := do
   let borrow := if param.borrow then "@&" else ""

@@ -139,6 +139,11 @@ def checkLetValue (e : LetValue) : CheckM Unit := do
   | .const declName us args => checkAppArgs (mkConst declName us) args
   | .fvar fvarId args => checkFVar fvarId; checkAppArgs (.fvar fvarId) args
   | .proj _ _ fvarId => checkFVar fvarId
+  | .reset _ obj => checkFVar obj
+  | .reuse obj _ _ _ args => checkFVar obj; args.forM fun | .fvar fvarId => checkFVar fvarId | _ => pure ()
+  | .set obj _ val => checkFVar obj; (match val with | .fvar fvarId => checkFVar fvarId | _ => pure ())
+  | .uset obj _ val => checkFVar obj; checkFVar val
+  | .sset obj _ _ val _ => checkFVar obj; checkFVar val
 
 def checkJpInScope (jp : FVarId) : CheckM Unit := do
   unless (← read).jps.contains jp do

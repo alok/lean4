@@ -30,8 +30,8 @@ where
     | _ => false
   goLetValue (l : LetValue) : Bool :=
     match l with
-    | .lit .. | .erased | .proj .. | .fvar .. => false
     | .const name .. => name == constName
+    | .lit .. | .erased | .proj .. | .fvar .. | .reset .. | .reuse .. | .set .. | .uset .. | .sset .. => false
 
 namespace Testing
 

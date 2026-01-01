@@ -118,7 +118,7 @@ def isGround [TraverseFVar α] (e : α) : SpecializeM Bool := do
       -- even with a type specified on the `let` binding.
       | some { params, .. } => pure ((args.size < params.size) : Bool)
       | none => pure false
-    | _ => pure false
+    | .lit .. | .erased | .proj .. | .reset .. | .reuse .. | .set .. | .uset .. | .sset .. => pure false
   let fvarId := decl.fvarId
   withReader (x := x) fun ctx => { ctx with
     scope := ctx.scope.insert fvarId

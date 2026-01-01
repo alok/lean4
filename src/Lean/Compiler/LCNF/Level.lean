@@ -115,9 +115,12 @@ def visitArgs (args : Array Arg) : Visitor :=
 
 def visitLetValue (e : LetValue) : Visitor :=
   match e with
-  | .erased | .lit .. | .proj .. => id
   | .const _ us args => visitLevels us ∘ visitArgs args
   | .fvar _ args => visitArgs args
+  | .reuse _ _ _ _ args => visitArgs args
+  | .set _ _ val => visitArg val
+  | .sset _ _ _ _ ty => visitType ty
+  | _ => id
 
 def visitParam (p : Param) : Visitor :=
   visitType p.type

@@ -132,11 +132,14 @@ mutual
 
   partial def inferLetValueType (e : LetValue) : InferTypeM Expr := do
     match e with
-    | .erased => return erasedExpr
     | .lit v => return inferLitValueType v
     | .proj structName idx fvarId => inferProjType structName idx fvarId
     | .const declName us args => inferAppTypeCore (← inferConstType declName us) args
     | .fvar fvarId args => inferAppTypeCore (← getType fvarId) args
+    | .reset .. => return erasedExpr
+    | .reuse _ declName .. => return mkConst declName
+    | .set .. | .uset .. | .sset .. => return erasedExpr
+    | .erased => return erasedExpr
 
   partial def inferAppTypeCore (fType : Expr) (args : Array Arg) : InferTypeM Expr := do
     let mut j := 0

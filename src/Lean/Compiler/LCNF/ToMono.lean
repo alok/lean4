@@ -96,7 +96,6 @@ def ctorAppToMono (resultFVar : FVarId) (ctorInfo : ConstructorVal) (args : Arra
 
 partial def LetValue.toMono (e : LetValue) (resultFVar : FVarId) : ToMonoM LetValue := do
   match e with
-  | .erased | .lit .. => return e
   | .const declName _ args =>
     if declName == ``Decidable.isTrue then
       return .const ``Bool.true [] #[]
@@ -134,10 +133,10 @@ partial def LetValue.toMono (e : LetValue) (resultFVar : FVarId) : ToMonoM LetVa
         modify fun s => { s with noncomputableVars := s.noncomputableVars.insert resultFVar declName }
       if let some monoDecl ← getMonoDecl? declName then
         if args.size >= monoDecl.params.size then
-          if let .code (.let { fvarId := resultFVar, value := .const callName _ callArgs, .. }
+          if let .code (.let { fvarId := resultFVar', value := .const callName _ callArgs, .. }
                              (.return retFVar)) := monoDecl.value then
             let redArgDeclName := declName ++ `_redArg
-            if callName == redArgDeclName && retFVar == resultFVar then
+            if callName == redArgDeclName && retFVar == resultFVar' then
               let args ← argsToMonoRedArg resultFVar args monoDecl.params callArgs
               return .const redArgDeclName [] args
         let args ← argsToMonoWithFnType resultFVar args monoDecl.type
@@ -163,6 +162,24 @@ partial def LetValue.toMono (e : LetValue) (resultFVar : FVarId) : ToMonoM LetVa
           return .erased
       else
         return e
+  | .reset n fvarId =>
+    checkFVarUseDeferred resultFVar fvarId
+    return .reset n fvarId
+  | .reuse fvarId ctorName cidx updtHeader args =>
+    checkFVarUseDeferred resultFVar fvarId
+    return .reuse fvarId ctorName cidx updtHeader (← args.mapM (argToMonoDeferredCheck resultFVar))
+  | .set fvarId i val =>
+    checkFVarUseDeferred resultFVar fvarId
+    return .set fvarId i (← argToMonoDeferredCheck resultFVar val)
+  | .uset fvarId i val =>
+    checkFVarUseDeferred resultFVar fvarId
+    checkFVarUseDeferred resultFVar val
+    return .uset fvarId i val
+  | .sset fvarId n offset val ty =>
+    checkFVarUseDeferred resultFVar fvarId
+    checkFVarUseDeferred resultFVar val
+    return .sset fvarId n offset val (← toMonoType ty)
+  | .erased | .lit .. => return e
 
 def LetDecl.toMono (decl : LetDecl) : ToMonoM LetDecl := do
   let type ← toMonoType decl.type

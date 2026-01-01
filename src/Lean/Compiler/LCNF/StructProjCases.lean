@@ -114,6 +114,7 @@ partial def visitLetValue (v : LetValue) : M LetValue := do
   | .lit _ | .erased => return v
   -- Projections should be handled directly by `visitCode`.
   | .proj .. => unreachable!
+  | .reset .. | .reuse .. | .set .. | .uset .. | .sset .. => return v
 
 partial def visitAlt (alt : Alt) : M Alt := do
   return alt.updateCode (← visitCode alt.getCode)

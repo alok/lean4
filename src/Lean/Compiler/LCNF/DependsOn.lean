@@ -29,10 +29,15 @@ private def argDepOn (a : Arg) : M Bool := do
 
 private def letValueDepOn (e : LetValue) : M Bool :=
   match e with
-  | .erased | .lit .. => return false
   | .proj _ _ fvarId => fvarDepOn fvarId
-  | .fvar fvarId args => fvarDepOn fvarId <||> args.anyM argDepOn
   | .const _ _ args => args.anyM argDepOn
+  | .fvar fvarId args => fvarDepOn fvarId <||> args.anyM argDepOn
+  | .reset _ fvarId => fvarDepOn fvarId
+  | .reuse fvarId _ _ _ args => fvarDepOn fvarId <||> args.anyM argDepOn
+  | .set fvarId _ val => fvarDepOn fvarId <||> argDepOn val
+  | .uset fvarId _ val => fvarDepOn fvarId <||> fvarDepOn val
+  | .sset fvarId _ _ val ty => fvarDepOn fvarId <||> fvarDepOn val <||> typeDepOn ty
+  | .lit .. | .erased => return false
 
 private def LetDecl.depOn (decl : LetDecl) : M Bool :=
   typeDepOn decl.type <||> letValueDepOn decl.value

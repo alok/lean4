@@ -91,16 +91,50 @@ def internalizeArg (arg : Arg) : InternalizeM Arg := do
 def internalizeArgs (args : Array Arg) : InternalizeM (Array Arg) :=
   args.mapM internalizeArg
 
+private def internalizeFVar (fvarId : FVarId) : InternalizeM Arg := do
+  match (← get)[fvarId]? with
+  | some arg => return arg
+  | none => return .fvar fvarId
+
 private partial def internalizeLetValue (e : LetValue) : InternalizeM LetValue := do
   match e with
   | .erased | .lit .. => return e
-  | .proj _ _ fvarId => match (← normFVar fvarId) with
-    | .fvar fvarId' => return e.updateProj! fvarId'
+  | .proj typeName i fvarId => match (← internalizeFVar fvarId) with
+    | .fvar fvarId' => return .proj typeName i fvarId'
     | .erased => return .erased
-  | .const _ _ args => return e.updateArgs! (← internalizeArgs args)
-  | .fvar fvarId args => match (← normFVar fvarId) with
-    | .fvar fvarId' => return e.updateFVar! fvarId' (← internalizeArgs args)
+    | .type _ => unreachable!
+  | .const declName us args => return .const declName us (← internalizeArgs args)
+  | .fvar fvarId args => match (← internalizeFVar fvarId) with
+    | .fvar fvarId' => return .fvar fvarId' (← internalizeArgs args)
     | .erased => return .erased
+    | .type _ => unreachable!
+  | .reset n fvarId => match (← internalizeFVar fvarId) with
+    | .fvar fvarId' => return .reset n fvarId'
+    | .erased => return .erased
+    | .type _ => unreachable!
+  | .reuse fvarId ctorName cidx updtHeader args => match (← internalizeFVar fvarId) with
+    | .fvar fvarId' => return .reuse fvarId' ctorName cidx updtHeader (← internalizeArgs args)
+    | .erased => return .erased
+    | .type _ => unreachable!
+  | .set fvarId i val => match (← internalizeFVar fvarId) with
+    | .fvar fvarId' => return .set fvarId' i (← internalizeArg val)
+    | .erased => return .erased
+    | .type _ => unreachable!
+  | .uset fvarId i val => match (← internalizeFVar fvarId) with
+    | .fvar fvarId' => match (← internalizeFVar val) with
+      | .fvar val' => return .uset fvarId' i val'
+      | .erased => return .erased
+      | .type _ => unreachable!
+    | .erased => return .erased
+    | .type _ => unreachable!
+  | .sset fvarId n offset val ty => match (← internalizeFVar fvarId) with
+    | .fvar fvarId' => match (← internalizeFVar val) with
+      | .fvar val' => return .sset fvarId' n offset val' (← internalizeExpr ty)
+      | .erased => return .erased
+      | .type _ => unreachable!
+    | .erased => return .erased
+    | .type _ => unreachable!
+
 
 def internalizeLetDecl (decl : LetDecl) : InternalizeM LetDecl := do
   let binderName ← refreshBinderName decl.binderName

@@ -44,7 +44,7 @@ def simpAppApp? (e : LetValue) : OptionT SimpM LetValue := do
     guard (!args.isEmpty)
     return .const declName us (args' ++ args)
   | .erased => return .erased
-  | .proj .. | .lit .. => failure
+  | .lit .. | .proj .. | .reset .. | .reuse .. | .set .. | .uset .. | .sset .. => failure
 
 def simpCtorDiscr? (e : LetValue) : OptionT SimpM LetValue := do
   let .const declName _ _ := e | failure

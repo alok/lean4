@@ -28,7 +28,7 @@ where
   collectLetValue (e : LetValue) (s : NameSet) : NameSet :=
     match e with
     | .const declName .. => s.insert declName
-    | _ => s
+    | .lit .. | .erased | .proj .. | .fvar .. | .reset .. | .reuse .. | .set .. | .uset .. | .sset .. => s
 
 private def shouldExportBody (decl : Decl) : CompilerM Bool := do
   -- Export body if template-like...

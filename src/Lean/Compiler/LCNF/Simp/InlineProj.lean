@@ -56,7 +56,6 @@ where
     let some letDecl ← findLetDecl? fvarId | failure
     match letDecl.value with
     | .proj _ i s => visit s (i :: projs)
-    | .fvar .. | .lit .. | .erased => failure
     | .const declName us args =>
       if let some (.ctorInfo ctorVal) := (← getEnv).find? declName then
         let i :: projs := projs | unreachable!
@@ -81,6 +80,7 @@ where
           let code ← betaReduce params code args (mustInline := true)
           visitCode code projs
         | .extern .. => failure
+    | .fvar .. | .lit .. | .erased | .reset .. | .reuse .. | .set .. | .uset .. | .sset .. => failure
 
   visitCode (code : Code) (projs : List Nat) : OptionT (StateRefT (Array CodeDecl) SimpM) FVarId := do
     match code with

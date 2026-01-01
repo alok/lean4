@@ -90,12 +90,33 @@ inductive LetValue where
   | proj (typeName : Name) (idx : Nat) (struct : FVarId)
   | const (declName : Name) (us : List Level) (args : Array Arg)
   | fvar (fvarId : FVarId) (args : Array Arg)
+  | reset (numFields : Nat) (obj : FVarId)
+  | reuse (obj : FVarId) (ctorName : Name) (cidx : Nat) (updtHeader : Bool) (args : Array Arg)
+  | set (obj : FVarId) (idx : Nat) (val : Arg)
+  | uset (obj : FVarId) (idx : Nat) (val : FVarId)
+  | sset (obj : FVarId) (n : Nat) (offset : Nat) (val : FVarId) (ty : Expr)
   deriving Inhabited, BEq, Hashable
 
 def Arg.toLetValue (arg : Arg) : LetValue :=
   match arg with
   | .fvar fvarId => .fvar fvarId #[]
   | .erased | .type .. => .erased
+
+def LetValue.toExpr (e : LetValue) : Expr :=
+  match e with
+  | .lit v => v.toExpr
+  | .erased => erasedExpr
+  | .proj n i s => .proj n i (.fvar s)
+  | .const n us as => mkAppN (.const n us) (as.map Arg.toExpr)
+  | .fvar fvarId as => mkAppN (.fvar fvarId) (as.map Arg.toExpr)
+  | .reset n obj => mkApp2 (mkConst ``LetValue.reset) (Lean.toExpr n) (.fvar obj)
+  | .reuse obj ctorName _ updtHeader args =>
+    let args := #[.fvar obj, Lean.toExpr ctorName, Lean.toExpr updtHeader] ++ args.map Arg.toExpr
+    mkAppN (mkConst ``LetValue.reuse) args
+  | .set obj idx val => mkApp3 (mkConst ``LetValue.set) (.fvar obj) (Lean.toExpr idx) val.toExpr
+  | .uset obj idx val => mkApp3 (mkConst ``LetValue.uset) (.fvar obj) (Lean.toExpr idx) (.fvar val)
+  | .sset obj n offset val ty => mkApp5 (mkConst ``LetValue.sset) (.fvar obj) (Lean.toExpr n) (Lean.toExpr offset) (.fvar val) ty
+
 
 private unsafe def LetValue.updateProjImp (e : LetValue) (fvarId' : FVarId) : LetValue :=
   match e with
@@ -114,7 +135,7 @@ private unsafe def LetValue.updateConstImp (e : LetValue) (declName' : Name) (us
 private unsafe def LetValue.updateFVarImp (e : LetValue) (fvarId' : FVarId) (args' : Array Arg) : LetValue :=
   match e with
   | .fvar fvarId args => if fvarId == fvarId' && ptrEq args args' then e else .fvar fvarId' args'
-  | _ => unreachable!
+  | _ => e
 
 @[implemented_by LetValue.updateFVarImp] opaque LetValue.updateFVar! (e : LetValue) (fvarId' : FVarId) (args' : Array Arg) : LetValue
 
@@ -122,17 +143,9 @@ private unsafe def LetValue.updateArgsImp (e : LetValue) (args' : Array Arg) : L
   match e with
   | .const declName us args => if ptrEq args args' then e else .const declName us args'
   | .fvar fvarId args => if ptrEq args args' then e else .fvar fvarId args'
-  | _ => unreachable!
+  | _ => e
 
 @[implemented_by LetValue.updateArgsImp] opaque LetValue.updateArgs! (e : LetValue) (args' : Array Arg) : LetValue
-
-def LetValue.toExpr (e : LetValue) : Expr :=
-  match e with
-  | .lit v => v.toExpr
-  | .erased => erasedExpr
-  | .proj n i s => .proj n i (.fvar s)
-  | .const n us as => mkAppN (.const n us) (as.map Arg.toExpr)
-  | .fvar fvarId as => mkAppN (.fvar fvarId) (as.map Arg.toExpr)
 
 structure LetDecl where
   fvarId : FVarId
@@ -467,7 +480,10 @@ where
     match e with
     | .const declName vs args => e.updateConst! declName (vs.mapMono instLevel) (args.mapMono instArg)
     | .fvar fvarId args => e.updateFVar! fvarId (args.mapMono instArg)
-    | .proj .. | .lit .. | .erased => e
+    | .reuse obj ctorName cidx updtHeader args => .reuse obj ctorName cidx updtHeader (args.mapMono instArg)
+    | .set obj i val => .set obj i (instArg val)
+    | .sset obj n offset val ty => .sset obj n offset val (instExpr ty)
+    | .proj .. | .lit .. | .erased | .reset .. | .uset .. => e
 
   instLetDecl (decl : LetDecl) :=
     decl.updateCore (instExpr decl.type) (instLetValue decl.value)
@@ -687,6 +703,11 @@ private def collectLetValue (e : LetValue) (s : FVarIdHashSet) : FVarIdHashSet :
   | .fvar fvarId args => collectArgs args <| s.insert fvarId
   | .const _ _ args => collectArgs args s
   | .proj _ _ fvarId => s.insert fvarId
+  | .reset _ fvarId => s.insert fvarId
+  | .reuse fvarId _ _ _ args => collectArgs args (s.insert fvarId)
+  | .set fvarId _ val => collectArg val (s.insert fvarId)
+  | .uset fvarId _ val => s.insert fvarId |>.insert val
+  | .sset fvarId _ _ val _ => s.insert fvarId |>.insert val
   | .lit .. | .erased => s
 
 private partial def collectParams (ps : Array Param) (s : FVarIdHashSet) : FVarIdHashSet :=

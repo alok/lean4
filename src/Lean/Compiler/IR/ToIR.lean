@@ -64,11 +64,11 @@ def getJoinPointValue (fvarId : FVarId) : M JoinPointId := do
 def bindVar (fvarId : FVarId) : M VarId := do
   modifyGet fun s =>
     let varId := { idx := s.nextId }
-    ⟨varId, { s with vars := s.vars.insertIfNew fvarId (.var varId),
+    ⟨varId, { s with vars := s.vars.insert fvarId (.var varId),
                      nextId := s.nextId + 1 }⟩
 
 def bindVarToVarId (fvarId : FVarId) (varId : VarId) : M Unit := do
-  modify fun s => { s with vars := s.vars.insertIfNew fvarId (.var varId) }
+  modify fun s => { s with vars := s.vars.insert fvarId (.var varId) }
 
 def newVar : M VarId := do
   modifyGet fun s =>
@@ -78,11 +78,11 @@ def newVar : M VarId := do
 def bindJoinPoint (fvarId : FVarId) : M JoinPointId := do
   modifyGet fun s =>
     let joinPointId := { idx := s.nextId }
-    ⟨joinPointId, { s with joinPoints := s.joinPoints.insertIfNew fvarId joinPointId,
+    ⟨joinPointId, { s with joinPoints := s.joinPoints.insert fvarId joinPointId,
                            nextId := s.nextId + 1 }⟩
 
 def bindErased (fvarId : FVarId) : M Unit := do
-  modify fun s => { s with vars := s.vars.insertIfNew fvarId .erased }
+  modify fun s => { s with vars := s.vars.insert fvarId .erased }
 
 def findDecl (n : Name) : M (Option Decl) :=
   return findEnvDecl (← Lean.getEnv) n
@@ -257,9 +257,66 @@ partial def lowerLet (decl : LCNF.LetDecl) (k : LCNF.Code) : M FnBody := do
   | .fvar fvarId args =>
     match (← getFVarValue fvarId) with
     | .var id =>
-      let irArgs ← args.mapM lowerArg
-      mkAp id irArgs
+      if args.isEmpty then
+        mkVar id
+      else
+        let irArgs ← args.mapM lowerArg
+        mkAp id irArgs
     | .erased => mkErased ()
+  | .reset n fvarId =>
+    match (← getFVarValue fvarId) with
+    | .var varId =>
+      let var ← bindVar decl.fvarId
+      return .vdecl var .tobject (.reset n varId) (← lowerCode k)
+    | .erased => mkErased ()
+  | .reuse fvarId name _ updtHeader args =>
+    match (← getFVarValue fvarId) with
+    | .var varId =>
+      let env ← Lean.getEnv
+      let some (.ctorInfo ctorVal) := env.find? name | panic! "constructor expected"
+      let ⟨ctorInfo, fields⟩ ← getCtorLayout name
+      let irArgs ← args.mapM lowerArg
+      let irArgs := irArgs.extract (start := ctorVal.numParams)
+      let objArgs : Array Arg ← do
+        let mut result : Array Arg := #[]
+        for h : i in [:fields.size] do
+          match fields[i] with
+          | .object .. =>
+            result := result.push irArgs[i]!
+          | .usize .. | .scalar .. | .erased | .void => pure ()
+        pure result
+      let objVar ← bindVar decl.fvarId
+      let rec lowerReuseNonObjectFields (_ : Unit) : M FnBody :=
+        let rec loop (i : Nat) : M FnBody := do
+          match irArgs[i]? with
+          | some (.var valId) =>
+            match fields[i]! with
+            | .usize usizeIdx =>
+              let k ← loop (i + 1)
+              return .uset objVar usizeIdx valId k
+            | .scalar _ offset argType =>
+              let k ← loop (i + 1)
+              return .sset objVar (ctorInfo.size + ctorInfo.usize) offset valId argType k
+            | .object .. | .erased | .void => loop (i + 1)
+          | some .erased => loop (i + 1)
+          | none => lowerCode k
+        loop 0
+      return .vdecl objVar ctorInfo.type (.reuse varId ctorInfo updtHeader objArgs) (← lowerReuseNonObjectFields ())
+    | .erased => mkErased ()
+  | .set fvarId idx arg =>
+    match (← getFVarValue fvarId), (← lowerArg arg) with
+    | .var varId, val => return .set varId idx val (← lowerCode k)
+    | _, _ => lowerCode k
+  | .uset fvarId idx arg =>
+    match (← getFVarValue fvarId), (← getFVarValue arg) with
+    | .var varId, .var valId => return .uset varId idx valId (← lowerCode k)
+    | _, _ => lowerCode k
+  | .sset fvarId n offset arg ty =>
+    match (← getFVarValue fvarId), (← getFVarValue arg) with
+    | .var varId, .var valId =>
+      let irTy ← toIRType ty
+      return .sset varId n offset valId irTy (← lowerCode k)
+    | _, _ => lowerCode k
   | .erased => mkErased ()
 where
   mkVar (v : VarId) : M FnBody := do
