@@ -492,9 +492,9 @@ _start:
 {
 lean_object* x_10; lean_object* x_11; lean_object* x_12; lean_object* x_13; lean_object* x_14; lean_object* x_15; 
 x_10 = lean_st_ref_get(x_3);
-x_11 = lean_ctor_get(x_10, 2);
+x_11 = lean_ctor_get(x_10, 3);
 lean_inc_ref(x_11);
-x_12 = lean_ctor_get(x_10, 5);
+x_12 = lean_ctor_get(x_10, 6);
 lean_inc_ref(x_12);
 lean_dec(x_10);
 x_13 = l___private_Lean_Meta_Tactic_Grind_Diseq_0__Lean_Meta_Grind_dummyEq;

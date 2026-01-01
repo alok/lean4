@@ -1,0 +1,8 @@
+// Use NEON on Apple Silicon
+#if defined(__aarch64__) || defined(_M_ARM64)
+    return sz_equal_neon
+    return sz_order_neon
+#else
+    return sz_equal_serial
+    return sz_order_serial
+#endif

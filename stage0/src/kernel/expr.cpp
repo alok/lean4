@@ -164,8 +164,8 @@ expr mk_const(name const & n, levels const & ls) { return expr(lean_expr_mk_cons
 extern "C" object * lean_expr_mk_app(obj_arg f, obj_arg a);
 expr mk_app(expr const & f, expr const & a) { return expr(lean_expr_mk_app(f.to_obj_arg(), a.to_obj_arg())); }
 
-extern "C" object * lean_expr_mk_sort(obj_arg l);
-expr mk_sort(level const & l) { return expr(lean_expr_mk_sort(l.to_obj_arg())); }
+extern "C" object * lean_expr_mk_sort(obj_arg u, obj_arg h);
+expr mk_sort(level const & u, level const & h) { return expr(lean_expr_mk_sort(u.to_obj_arg(), h.to_obj_arg())); }
 
 extern "C" object * lean_expr_mk_lambda(obj_arg n, obj_arg t, obj_arg e, uint8 bi);
 expr mk_lambda(name const & n, expr const & t, expr const & e, binder_info bi) {
@@ -339,9 +339,9 @@ expr update_binding(expr const & e, expr const & new_domain, expr const & new_bo
         return e;
 }
 
-expr update_sort(expr const & e, level const & new_level) {
-    if (!is_eqp(sort_level(e), new_level))
-        return mk_sort(new_level);
+expr update_sort(expr const & e, level const & new_level, level const & new_hlevel) {
+    if (!is_eqp(sort_level(e), new_level) || !is_eqp(sort_hlevel(e), new_hlevel))
+        return mk_sort(new_level, new_hlevel);
     else
         return e;
 }

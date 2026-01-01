@@ -5364,6 +5364,8 @@ uint8_t x_40;
 x_40 = lean_nat_dec_le(x_38, x_38);
 if (x_40 == 0)
 {
+if (x_39 == 0)
+{
 x_26 = x_36;
 goto block_33;
 }
@@ -5374,6 +5376,16 @@ x_41 = 0;
 x_42 = lean_usize_of_nat(x_38);
 x_43 = l___private_Init_Data_Array_Basic_0__Array_foldlMUnsafe_fold___at___00__private_Lean_Meta_Tactic_Grind_EMatchAction_0__Lean_Meta_Grind_Action_getAllTheorems_spec__5(x_35, x_41, x_42, x_36);
 x_26 = x_43;
+goto block_33;
+}
+}
+else
+{
+size_t x_44; size_t x_45; lean_object* x_46; 
+x_44 = 0;
+x_45 = lean_usize_of_nat(x_38);
+x_46 = l___private_Init_Data_Array_Basic_0__Array_foldlMUnsafe_fold___at___00__private_Lean_Meta_Tactic_Grind_EMatchAction_0__Lean_Meta_Grind_Action_getAllTheorems_spec__5(x_35, x_44, x_45, x_36);
+x_26 = x_46;
 goto block_33;
 }
 }
@@ -5412,8 +5424,8 @@ return x_12;
 block_19:
 {
 lean_object* x_18; 
-lean_dec(x_14);
-x_18 = l___private_Init_Data_Array_QSort_Basic_0__Array_qsort_sort___at___00__private_Lean_Meta_Tactic_Grind_EMatchAction_0__Lean_Meta_Grind_Action_getAllTheorems_spec__3___redArg(x_15, x_16, x_17);
+lean_dec(x_16);
+x_18 = l___private_Init_Data_Array_QSort_Basic_0__Array_qsort_sort___at___00__private_Lean_Meta_Tactic_Grind_EMatchAction_0__Lean_Meta_Grind_Action_getAllTheorems_spec__3___redArg(x_15, x_14, x_17);
 lean_dec(x_17);
 x_2 = x_18;
 goto block_13;
@@ -5421,23 +5433,23 @@ goto block_13;
 block_25:
 {
 uint8_t x_24; 
-x_24 = lean_nat_dec_le(x_23, x_22);
+x_24 = lean_nat_dec_le(x_23, x_20);
 if (x_24 == 0)
 {
-lean_dec(x_22);
+lean_dec(x_20);
 lean_inc(x_23);
-x_14 = x_20;
+x_14 = x_23;
 x_15 = x_21;
-x_16 = x_23;
+x_16 = x_22;
 x_17 = x_23;
 goto block_19;
 }
 else
 {
-x_14 = x_20;
+x_14 = x_23;
 x_15 = x_21;
-x_16 = x_23;
-x_17 = x_22;
+x_16 = x_22;
+x_17 = x_20;
 goto block_19;
 }
 }
@@ -5456,17 +5468,17 @@ x_32 = lean_nat_dec_le(x_28, x_31);
 if (x_32 == 0)
 {
 lean_inc(x_31);
-x_20 = x_27;
+x_20 = x_31;
 x_21 = x_26;
-x_22 = x_31;
+x_22 = x_27;
 x_23 = x_31;
 goto block_25;
 }
 else
 {
-x_20 = x_27;
+x_20 = x_31;
 x_21 = x_26;
-x_22 = x_31;
+x_22 = x_27;
 x_23 = x_28;
 goto block_25;
 }

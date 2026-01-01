@@ -47,7 +47,7 @@ size_t lean_uint64_to_usize(uint64_t);
 static lean_object* l_Lean_IR_toIRType___closed__0;
 extern lean_object* l_Lean_Meta_instInhabitedConfigWithKey___private__1;
 static lean_object* l___private_Lean_Compiler_IR_ToIRType_0__Lean_IR_nameToIRType_fillCache___closed__2;
-lean_object* l_Lean_Expr_sort___override(lean_object*);
+lean_object* l_Lean_mkSort(lean_object*);
 static lean_object* l_panic___at___00__private_Lean_Compiler_IR_ToIRType_0__Lean_IR_nameToIRType_fillCache_spec__0___closed__0;
 lean_object* lean_array_push(lean_object*, lean_object*);
 static lean_object* l_List_forIn_x27_loop___at___00__private_Lean_Compiler_IR_ToIRType_0__Lean_IR_nameToIRType_fillCache_spec__3___redArg___closed__6;
@@ -4473,7 +4473,7 @@ _start:
 {
 lean_object* x_1; lean_object* x_2; 
 x_1 = lean_box(0);
-x_2 = l_Lean_Expr_sort___override(x_1);
+x_2 = l_Lean_mkSort(x_1);
 return x_2;
 }
 }

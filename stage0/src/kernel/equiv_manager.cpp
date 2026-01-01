@@ -91,7 +91,14 @@ bool equiv_manager::is_equiv_core(expr const & a, expr const & b) {
             is_equiv_core(binding_body(a), binding_body(b));
         break;
     case expr_kind::Sort:
-        result = sort_level(a) == sort_level(b);
+        {
+            level const & ha = sort_hlevel(a);
+            level const & hb = sort_hlevel(b);
+            if (is_eqp(ha, hb) || (is_zero(ha) && is_zero(hb)))
+                result = sort_level(a) == sort_level(b);
+            else
+                result = sort_level(a) == sort_level(b) && ha == hb;
+        }
         break;
     case expr_kind::Lit:
         result = lit_value(a) == lit_value(b);

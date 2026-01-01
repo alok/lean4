@@ -4,6 +4,9 @@ stackinfo.cpp compact.cpp init_module.cpp io.cpp hash.cpp byteslice.cpp
 platform.cpp alloc.cpp allocprof.cpp sharecommon.cpp stack_overflow.cpp
 process.cpp object_ref.cpp mpn.cpp mutex.cpp libuv.cpp uv/net_addr.cpp uv/event_loop.cpp
 uv/timer.cpp uv/tcp.cpp uv/udp.cpp uv/dns.cpp uv/system.cpp uv/signal.cpp)
+
+# StringZilla SIMD-accelerated string operations
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 if (USE_MIMALLOC)
   list(APPEND RUNTIME_OBJS ${LEAN_BINARY_DIR}/../mimalloc/src/mimalloc/src/static.c)
   # Lean code includes it as `lean/mimalloc.h` but for compiling `static.c` itself, add original dir

@@ -39,6 +39,14 @@ static bool is_type_former_arg(buffer<name> const & C_ids, expr const & arg) {
     return is_fvar(fn) && std::find(C_ids.begin(), C_ids.end(), fvar_name(fn)) != C_ids.end();
 }
 
+static level get_result_hlevel(expr const & ind_type) {
+    expr t = ind_type;
+    while (is_pi(t))
+        t = binding_body(t);
+    lean_assert(is_sort(t));
+    return sort_hlevel(t);
+}
+
 declaration mk_cases_on(environment const & env, name const & n) {
     constant_info ind_info = env.get(n);
     if (!ind_info.is_inductive())
@@ -84,9 +92,11 @@ declaration mk_cases_on(environment const & env, name const & n) {
     levels lvls       = lparams_to_levels(rec_info.get_lparams());
     bool elim_to_prop = rec_info.get_num_lparams() == ind_info.get_num_lparams();
     level elim_lvl    = elim_to_prop ? mk_level_zero() : head(lvls);
+    bool has_elim_hlvl = rec_info.get_num_lparams() == ind_info.get_num_lparams() + 2;
+    level elim_hlvl   = has_elim_hlvl ? head(tail(lvls)) : get_result_hlevel(ind_info.get_type());
     /* We need `unit` when `num_motives` > 0 */
-    expr unit         = mk_unit(elim_lvl);
-    expr star         = mk_unit_mk(elim_lvl);
+    expr unit         = mk_unit(elim_lvl, elim_hlvl);
+    expr star         = mk_unit_mk(elim_lvl, elim_hlvl);
 
     buffer<expr> cases_on_params;
     expr rec_cnst = mk_constant(rec_name, lvls);

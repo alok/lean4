@@ -11197,7 +11197,7 @@ return x_3;
 LEAN_EXPORT lean_object* l___private_Lean_Server_FileWorker_WidgetRequests_0__Lean_Widget_hightlightStringMatches_x3f___redArg(lean_object* x_1, lean_object* x_2, lean_object* x_3, lean_object* x_4, lean_object* x_5, lean_object* x_6) {
 _start:
 {
-uint8_t x_7; lean_object* x_8; lean_object* x_9; lean_object* x_19; uint8_t x_20; lean_object* x_41; uint8_t x_42; 
+lean_object* x_7; uint8_t x_8; lean_object* x_9; lean_object* x_19; uint8_t x_20; lean_object* x_41; uint8_t x_42; 
 x_19 = lean_unsigned_to_nat(0u);
 x_41 = lean_string_utf8_byte_size(x_1);
 x_42 = lean_nat_dec_eq(x_41, x_19);
@@ -11216,11 +11216,11 @@ goto block_40;
 }
 block_18:
 {
-if (x_7 == 0)
+if (x_8 == 0)
 {
 lean_object* x_10; 
 lean_dec_ref(x_9);
-lean_dec(x_8);
+lean_dec(x_7);
 x_10 = lean_box(0);
 return x_10;
 }
@@ -11233,7 +11233,7 @@ x_13 = lean_nat_dec_eq(x_11, x_12);
 if (x_13 == 0)
 {
 lean_object* x_14; lean_object* x_15; 
-lean_dec(x_8);
+lean_dec(x_7);
 x_14 = lean_alloc_ctor(1, 1, 0);
 lean_ctor_set(x_14, 0, x_9);
 x_15 = lean_alloc_ctor(1, 1, 0);
@@ -11243,8 +11243,8 @@ return x_15;
 else
 {
 lean_object* x_16; lean_object* x_17; 
-x_16 = lean_array_fget(x_9, x_8);
-lean_dec(x_8);
+x_16 = lean_array_fget(x_9, x_7);
+lean_dec(x_7);
 lean_dec_ref(x_9);
 x_17 = lean_alloc_ctor(1, 1, 0);
 lean_ctor_set(x_17, 0, x_16);
@@ -11301,8 +11301,8 @@ lean_dec_ref(x_33);
 x_35 = lean_array_push(x_31, x_34);
 x_36 = lean_unbox(x_29);
 lean_dec(x_29);
-x_7 = x_36;
-x_8 = x_19;
+x_7 = x_19;
+x_8 = x_36;
 x_9 = x_35;
 goto block_18;
 }
@@ -11312,8 +11312,8 @@ uint8_t x_37;
 lean_dec(x_33);
 x_37 = lean_unbox(x_29);
 lean_dec(x_29);
-x_7 = x_37;
-x_8 = x_19;
+x_7 = x_19;
+x_8 = x_37;
 x_9 = x_31;
 goto block_18;
 }
@@ -11987,7 +11987,7 @@ return x_15;
 LEAN_EXPORT lean_object* l___private_Lean_Server_FileWorker_WidgetRequests_0__Lean_Widget_hightlightStringMatches_x3f___at___00__private_Lean_Server_FileWorker_WidgetRequests_0__Lean_Widget_advanceTaggedTextHighlightState_spec__0___redArg(lean_object* x_1, lean_object* x_2, lean_object* x_3, lean_object* x_4, lean_object* x_5, lean_object* x_6) {
 _start:
 {
-lean_object* x_7; uint8_t x_8; lean_object* x_9; lean_object* x_19; uint8_t x_20; lean_object* x_40; uint8_t x_41; 
+uint8_t x_7; lean_object* x_8; lean_object* x_9; lean_object* x_19; uint8_t x_20; lean_object* x_40; uint8_t x_41; 
 x_19 = lean_unsigned_to_nat(0u);
 x_40 = lean_string_utf8_byte_size(x_2);
 x_41 = lean_nat_dec_eq(x_40, x_19);
@@ -12006,11 +12006,11 @@ goto block_39;
 }
 block_18:
 {
-if (x_8 == 0)
+if (x_7 == 0)
 {
 lean_object* x_10; 
 lean_dec_ref(x_9);
-lean_dec(x_7);
+lean_dec(x_8);
 x_10 = lean_box(0);
 return x_10;
 }
@@ -12023,7 +12023,7 @@ x_13 = lean_nat_dec_eq(x_11, x_12);
 if (x_13 == 0)
 {
 lean_object* x_14; lean_object* x_15; 
-lean_dec(x_7);
+lean_dec(x_8);
 x_14 = lean_alloc_ctor(1, 1, 0);
 lean_ctor_set(x_14, 0, x_9);
 x_15 = lean_alloc_ctor(1, 1, 0);
@@ -12033,8 +12033,8 @@ return x_15;
 else
 {
 lean_object* x_16; lean_object* x_17; 
-x_16 = lean_array_fget(x_9, x_7);
-lean_dec(x_7);
+x_16 = lean_array_fget(x_9, x_8);
+lean_dec(x_8);
 lean_dec_ref(x_9);
 x_17 = lean_alloc_ctor(1, 1, 0);
 lean_ctor_set(x_17, 0, x_16);
@@ -12080,8 +12080,8 @@ lean_dec_ref(x_32);
 x_34 = lean_array_push(x_30, x_33);
 x_35 = lean_unbox(x_28);
 lean_dec(x_28);
-x_7 = x_19;
-x_8 = x_35;
+x_7 = x_35;
+x_8 = x_19;
 x_9 = x_34;
 goto block_18;
 }
@@ -12091,8 +12091,8 @@ uint8_t x_36;
 lean_dec(x_32);
 x_36 = lean_unbox(x_28);
 lean_dec(x_28);
-x_7 = x_19;
-x_8 = x_36;
+x_7 = x_36;
+x_8 = x_19;
 x_9 = x_30;
 goto block_18;
 }

@@ -55,8 +55,8 @@ lean_object* l_mkNatLookupTable(lean_object*, lean_object*, lean_object*, lean_o
 extern lean_object* l_Lean_Meta_instInhabitedConfigWithKey___private__1;
 LEAN_EXPORT lean_object* l___private_Lean_Meta_Constructions_CtorElim_0__Lean_reassocMax(lean_object*);
 lean_object* l_Lean_Environment_findConstVal_x3f(lean_object*, lean_object*, uint8_t);
-lean_object* l_Lean_Expr_sort___override(lean_object*);
 LEAN_EXPORT lean_object* l_Lean_throwAttrNotInAsyncCtx___at___00Lean_TagAttribute_setTag___at___00__private_Lean_Meta_Constructions_CtorElim_0__Lean_mkConstructorElim_spec__0_spec__0(lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*);
+lean_object* l_Lean_mkSort(lean_object*);
 LEAN_EXPORT lean_object* l___private_Lean_Meta_Constructions_CtorElim_0__Lean_mkCtorElimType(lean_object*, lean_object*, lean_object*, lean_object*, lean_object*);
 lean_object* lean_array_push(lean_object*, lean_object*);
 lean_object* l_Lean_mkLevelMax_x27(lean_object*, lean_object*);
@@ -1464,7 +1464,7 @@ x_15 = l_Lean_mkLevelMax_x27(x_9, x_14);
 x_16 = l_Lean_Level_normalize(x_15);
 lean_dec(x_15);
 x_17 = l___private_Lean_Meta_Constructions_CtorElim_0__Lean_reassocMax(x_16);
-x_18 = l_Lean_Expr_sort___override(x_17);
+x_18 = l_Lean_mkSort(x_17);
 x_19 = l_mkNatLookupTable(x_1, x_18, x_13, x_3, x_4, x_5, x_6);
 lean_dec(x_13);
 return x_19;

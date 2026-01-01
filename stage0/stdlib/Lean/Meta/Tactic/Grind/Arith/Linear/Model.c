@@ -7470,7 +7470,7 @@ lean_dec_ref(x_9);
 x_11 = lean_ctor_get(x_10, 0);
 lean_inc_ref(x_11);
 lean_dec(x_10);
-x_12 = lean_ctor_get(x_1, 3);
+x_12 = lean_ctor_get(x_1, 4);
 x_13 = l___private_Lean_Meta_Tactic_Grind_Arith_Linear_Model_0__Lean_Meta_Grind_Arith_Linear_assignTerms___closed__1;
 x_14 = l_Lean_Meta_Grind_Arith_Linear_mkModel___closed__1;
 x_15 = lean_array_get(x_13, x_11, x_2);

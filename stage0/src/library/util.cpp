@@ -349,12 +349,20 @@ expr mk_true() {
     return *g_true;
 }
 
+expr mk_true(level const & h) {
+    return mk_constant(get_true_name(), {h});
+}
+
 bool is_true(expr const & e) {
     return e == *g_true;
 }
 
 expr mk_true_intro() {
     return *g_true_intro;
+}
+
+expr mk_true_intro(level const & h) {
+    return mk_constant(get_true_intro_name(), {h});
 }
 
 bool is_and(expr const & e) {
@@ -376,11 +384,19 @@ expr mk_and(expr const & a, expr const & b) {
 }
 
 expr mk_unit(level const & l) {
-    return mk_constant(get_punit_name(), {l});
+    return mk_constant(get_punit_name(), {l, mk_level_zero()});
+}
+
+expr mk_unit(level const & l, level const & h) {
+    return mk_constant(get_punit_name(), {l, h});
 }
 
 expr mk_unit_mk(level const & l) {
-    return mk_constant(get_punit_unit_name(), {l});
+    return mk_constant(get_punit_unit_name(), {l, mk_level_zero()});
+}
+
+expr mk_unit_mk(level const & l, level const & h) {
+    return mk_constant(get_punit_unit_name(), {l, h});
 }
 
 static expr * g_unit = nullptr;
@@ -462,6 +478,8 @@ static void finalize_char() {
 
 expr mk_unit(level const & l, bool prop) { return prop ? mk_true() : mk_unit(l); }
 expr mk_unit_mk(level const & l, bool prop) { return prop ? mk_true_intro() : mk_unit_mk(l); }
+expr mk_unit(level const & l, level const & h, bool prop) { return prop ? mk_true(h) : mk_unit(l, h); }
+expr mk_unit_mk(level const & l, level const & h, bool prop) { return prop ? mk_true_intro(h) : mk_unit_mk(l, h); }
 
 bool is_ite(expr const & e) {
     return is_app_of(e, get_ite_name(), 5);
@@ -827,9 +845,9 @@ void initialize_library_util() {
     mark_persistent(g_unit->raw());
     g_unit_mk        = new expr(mk_constant(get_unit_unit_name()));
     mark_persistent(g_unit_mk->raw());
-    g_true           = new expr(mk_constant(get_true_name()));
+    g_true           = new expr(mk_constant(get_true_name(), {mk_level_zero()}));
     mark_persistent(g_true->raw());
-    g_true_intro     = new expr(mk_constant(get_true_intro_name()));
+    g_true_intro     = new expr(mk_constant(get_true_intro_name(), {mk_level_zero()}));
     mark_persistent(g_true_intro->raw());
     g_and            = new expr(mk_constant(get_and_name()));
     mark_persistent(g_and->raw());

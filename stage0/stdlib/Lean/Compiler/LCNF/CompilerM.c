@@ -3944,6 +3944,8 @@ uint8_t x_12;
 x_12 = lean_nat_dec_le(x_8, x_8);
 if (x_12 == 0)
 {
+if (x_10 == 0)
+{
 lean_object* x_13; 
 x_13 = lean_alloc_ctor(0, 1, 0);
 lean_ctor_set(x_13, 0, x_9);
@@ -3956,6 +3958,15 @@ x_14 = 0;
 x_15 = lean_usize_of_nat(x_8);
 x_16 = l___private_Init_Data_Array_Basic_0__Array_foldlMUnsafe_fold___at___00Lean_Compiler_LCNF_eraseCodeDecls_spec__0___redArg(x_1, x_14, x_15, x_9, x_3);
 return x_16;
+}
+}
+else
+{
+size_t x_17; size_t x_18; lean_object* x_19; 
+x_17 = 0;
+x_18 = lean_usize_of_nat(x_8);
+x_19 = l___private_Init_Data_Array_Basic_0__Array_foldlMUnsafe_fold___at___00Lean_Compiler_LCNF_eraseCodeDecls_spec__0___redArg(x_1, x_17, x_18, x_9, x_3);
+return x_19;
 }
 }
 }
@@ -8690,8 +8701,8 @@ if (x_12 == 0)
 lean_object* x_13; lean_object* x_14; 
 lean_dec_ref(x_2);
 x_13 = lean_alloc_ctor(1, 2, 0);
-lean_ctor_set(x_13, 0, x_9);
-lean_ctor_set(x_13, 1, x_11);
+lean_ctor_set(x_13, 0, x_11);
+lean_ctor_set(x_13, 1, x_9);
 x_14 = lean_alloc_ctor(0, 1, 0);
 lean_ctor_set(x_14, 0, x_13);
 return x_14;
@@ -8713,8 +8724,8 @@ if (x_20 == 0)
 lean_object* x_21; lean_object* x_22; 
 lean_dec_ref(x_2);
 x_21 = lean_alloc_ctor(2, 2, 0);
-lean_ctor_set(x_21, 0, x_17);
-lean_ctor_set(x_21, 1, x_19);
+lean_ctor_set(x_21, 0, x_19);
+lean_ctor_set(x_21, 1, x_17);
 x_22 = lean_alloc_ctor(0, 1, 0);
 lean_ctor_set(x_22, 0, x_21);
 return x_22;
@@ -8756,9 +8767,9 @@ x_40 = lean_ptr_addr(x_36);
 x_41 = lean_usize_dec_eq(x_39, x_40);
 if (x_41 == 0)
 {
-x_9 = x_34;
+x_9 = x_36;
 x_10 = lean_box(0);
-x_11 = x_36;
+x_11 = x_34;
 x_12 = x_41;
 goto block_16;
 }
@@ -8768,9 +8779,9 @@ size_t x_42; size_t x_43; uint8_t x_44;
 x_42 = lean_ptr_addr(x_37);
 x_43 = lean_ptr_addr(x_34);
 x_44 = lean_usize_dec_eq(x_42, x_43);
-x_9 = x_34;
+x_9 = x_36;
 x_10 = lean_box(0);
-x_11 = x_36;
+x_11 = x_34;
 x_12 = x_44;
 goto block_16;
 }
@@ -8788,9 +8799,9 @@ x_49 = lean_ptr_addr(x_45);
 x_50 = lean_usize_dec_eq(x_48, x_49);
 if (x_50 == 0)
 {
-x_17 = x_34;
+x_17 = x_45;
 x_18 = lean_box(0);
-x_19 = x_45;
+x_19 = x_34;
 x_20 = x_50;
 goto block_24;
 }
@@ -8800,9 +8811,9 @@ size_t x_51; size_t x_52; uint8_t x_53;
 x_51 = lean_ptr_addr(x_46);
 x_52 = lean_ptr_addr(x_34);
 x_53 = lean_usize_dec_eq(x_51, x_52);
-x_17 = x_34;
+x_17 = x_45;
 x_18 = lean_box(0);
-x_19 = x_45;
+x_19 = x_34;
 x_20 = x_53;
 goto block_24;
 }

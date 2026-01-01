@@ -179,7 +179,6 @@ LEAN_EXPORT lean_object* l_Lean_Elab_Term_elabSubst___lam__2(lean_object*, uint8
 static lean_object* l_Lean_Elab_Term_expandDbgTrace___closed__18;
 static lean_object* l_Lean_Elab_Term_elabUnsafe___closed__9;
 LEAN_EXPORT lean_object* l_Lean_Elab_Term_elabUnsafe___regBuiltin_Lean_Elab_Term_elabUnsafe__1();
-lean_object* l_Lean_Expr_sort___override(lean_object*);
 static lean_object* l_Lean_Elab_Term_elabBorrowed___regBuiltin_Lean_Elab_Term_elabBorrowed_declRange__3___closed__6;
 LEAN_EXPORT lean_object* l_Lean_Elab_Term_elabStateRefT___regBuiltin_Lean_Elab_Term_elabStateRefT__1___boxed(lean_object*);
 LEAN_EXPORT lean_object* l_Lean_Elab_Term_elabStateRefT___redArg(lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*);
@@ -33120,7 +33119,7 @@ _start:
 {
 lean_object* x_1; lean_object* x_2; 
 x_1 = lean_box(0);
-x_2 = l_Lean_Expr_sort___override(x_1);
+x_2 = l_Lean_mkSort(x_1);
 return x_2;
 }
 }

@@ -59,9 +59,9 @@ static lean_object* l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDecls_loop
 static lean_object* l_Lean_mkBRecOn___closed__1;
 static lean_object* l___private_Lean_Meta_Constructions_BRecOn_0__Lean_mkBRecOnFromRec___lam__2___closed__0;
 lean_object* l_Lean_Level_succ___override(lean_object*);
-lean_object* l_Lean_Expr_sort___override(lean_object*);
 lean_object* l_Lean_MessageData_ofList(lean_object*);
 LEAN_EXPORT lean_object* l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDecls_loop___at___00Lean_Meta_withLocalDecls___at___00Lean_Meta_withLocalDeclsD___at___00__private_Lean_Meta_Constructions_BRecOn_0__Lean_mkBRecOnFromRec_spec__7_spec__8_spec__9___redArg___boxed(lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*);
+lean_object* l_Lean_mkSort(lean_object*);
 lean_object* lean_array_push(lean_object*, lean_object*);
 static lean_object* l_Lean_mkBelow___closed__0;
 LEAN_EXPORT lean_object* l_Lean_throwUnknownConstant___at___00Lean_getConstInfo___at___00__private_Lean_Meta_Constructions_BRecOn_0__Lean_mkBelowFromRec_spec__0_spec__0___redArg___boxed(lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*);
@@ -626,7 +626,7 @@ LEAN_EXPORT lean_object* l___private_Lean_Meta_Constructions_BRecOn_0__Lean_buil
 _start:
 {
 lean_object* x_10; uint8_t x_11; uint8_t x_12; lean_object* x_13; 
-x_10 = l_Lean_Expr_sort___override(x_1);
+x_10 = l_Lean_mkSort(x_1);
 x_11 = 0;
 x_12 = 1;
 x_13 = l_Lean_Meta_mkForallFVars(x_3, x_10, x_11, x_2, x_2, x_12, x_5, x_6, x_7, x_8);
@@ -2189,7 +2189,7 @@ LEAN_EXPORT lean_object* l___private_Init_Data_Array_Basic_0__Array_forIn_x27Uns
 _start:
 {
 lean_object* x_10; uint8_t x_11; uint8_t x_12; lean_object* x_13; 
-x_10 = l_Lean_Expr_sort___override(x_1);
+x_10 = l_Lean_mkSort(x_1);
 x_11 = 0;
 x_12 = 1;
 x_13 = l_Lean_Meta_mkLambdaFVars(x_3, x_10, x_11, x_2, x_11, x_2, x_12, x_5, x_6, x_7, x_8);
@@ -2661,7 +2661,7 @@ lean_inc(x_25);
 x_57 = lean_array_push(x_56, x_25);
 x_58 = l_Array_append___redArg(x_55, x_57);
 lean_dec_ref(x_57);
-x_59 = l_Lean_Expr_sort___override(x_38);
+x_59 = l_Lean_mkSort(x_38);
 x_60 = 0;
 x_61 = 1;
 x_62 = l_Lean_Meta_mkForallFVars(x_58, x_59, x_60, x_19, x_19, x_61, x_11, x_12, x_13, x_14);
@@ -7075,7 +7075,7 @@ _start:
 {
 lean_object* x_1; lean_object* x_2; 
 x_1 = lean_box(0);
-x_2 = l_Lean_Expr_sort___override(x_1);
+x_2 = l_Lean_mkSort(x_1);
 return x_2;
 }
 }

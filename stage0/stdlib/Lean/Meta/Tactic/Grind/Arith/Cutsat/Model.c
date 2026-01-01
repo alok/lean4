@@ -5221,7 +5221,7 @@ LEAN_EXPORT lean_object* l_Lean_Meta_Grind_Arith_Cutsat_mkModel(lean_object* x_1
 _start:
 {
 lean_object* x_7; lean_object* x_8; lean_object* x_9; 
-x_7 = lean_ctor_get(x_1, 3);
+x_7 = lean_ctor_get(x_1, 4);
 x_8 = l_Lean_Meta_Grind_Arith_Cutsat_mkModel___closed__1;
 lean_inc(x_5);
 lean_inc_ref(x_4);

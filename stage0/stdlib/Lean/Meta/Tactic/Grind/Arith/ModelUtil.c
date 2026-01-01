@@ -1086,7 +1086,7 @@ LEAN_EXPORT uint8_t l___private_Lean_Meta_Tactic_Grind_Arith_ModelUtil_0__Lean_M
 _start:
 {
 lean_object* x_5; lean_object* x_6; 
-x_5 = lean_ctor_get(x_1, 4);
+x_5 = lean_ctor_get(x_1, 5);
 lean_inc_ref(x_5);
 x_6 = l_Lean_PersistentHashMap_find_x3f___at___00__private_Lean_Meta_Tactic_Grind_Arith_ModelUtil_0__Lean_Meta_Grind_Arith_satisfyDiseqs_spec__0___redArg(x_5, x_3);
 if (lean_obj_tag(x_6) == 1)
@@ -6019,7 +6019,7 @@ lean_object* x_16; lean_object* x_17; lean_object* x_18; lean_object* x_19; lean
 x_16 = lean_ctor_get(x_15, 0);
 lean_inc(x_16);
 lean_dec_ref(x_15);
-x_17 = lean_ctor_get(x_1, 3);
+x_17 = lean_ctor_get(x_1, 4);
 lean_inc_ref(x_17);
 x_18 = l_Std_DHashMap_Internal_Raw_u2080_contains___at___00__private_Lean_Meta_Tactic_Grind_Arith_ModelUtil_0__Lean_Meta_Grind_Arith_pickUnusedValue_go_spec__0___redArg___closed__0;
 x_19 = lean_alloc_ctor(0, 2, 0);

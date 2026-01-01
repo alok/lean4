@@ -238,7 +238,9 @@ expr instantiate_lparams(expr const & e, names const & lps, levels const & ls) {
             if (is_constant(e)) {
                 return some_expr(update_constant(e, map_reuse(const_levels(e), [&](level const & l) { return instantiate(l, lps, ls); })));
             } else if (is_sort(e)) {
-                return some_expr(update_sort(e, instantiate(sort_level(e), lps, ls)));
+                level new_u = instantiate(sort_level(e), lps, ls);
+                level new_h = instantiate(sort_hlevel(e), lps, ls);
+                return some_expr(update_sort(e, new_u, new_h));
             } else {
                 return none_expr();
             }

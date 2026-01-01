@@ -34,7 +34,7 @@ static lean_object* l_Lean_mkUnknownIdentifierMessageCore___at___00Lean_mkUnknow
 LEAN_EXPORT lean_object* l_Lean_Meta_isConstructorApp_x27(lean_object*, lean_object*, lean_object*, lean_object*, lean_object*);
 LEAN_EXPORT lean_object* l_Lean_Meta_constructorApp_x3f___boxed(lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*);
 static lean_object* l_Lean_mkUnknownIdentifierMessageCore___at___00Lean_mkUnknownIdentifierMessage___at___00Lean_throwUnknownIdentifierAt___at___00Lean_throwUnknownConstantAt___at___00Lean_throwUnknownConstant___at___00Lean_getConstInfo___at___00Lean_Meta_isConstructorApp_x27_x3f_spec__0_spec__0_spec__1_spec__2_spec__3_spec__4___redArg___closed__3;
-lean_object* l_Lean_Expr_sort___override(lean_object*);
+lean_object* l_Lean_mkSort(lean_object*);
 lean_object* lean_array_push(lean_object*, lean_object*);
 extern lean_object* l_Lean_unknownIdentifierMessageTag;
 uint8_t l_Lean_Name_isAnonymous(lean_object*);
@@ -1713,7 +1713,7 @@ block_13:
 if (x_9 == 0)
 {
 lean_object* x_10; lean_object* x_11; 
-lean_dec_ref(x_8);
+lean_dec_ref(x_7);
 x_10 = lean_box(0);
 x_11 = lean_alloc_ctor(0, 1, 0);
 lean_ctor_set(x_11, 0, x_10);
@@ -1723,7 +1723,7 @@ else
 {
 lean_object* x_12; 
 x_12 = lean_alloc_ctor(1, 1, 0);
-lean_ctor_set(x_12, 0, x_8);
+lean_ctor_set(x_12, 0, x_7);
 return x_12;
 }
 }
@@ -1736,15 +1736,15 @@ if (x_16 == 0)
 uint8_t x_17; 
 lean_inc_ref(x_14);
 x_17 = l_Lean_Exception_isRuntime(x_14);
-x_7 = lean_box(0);
-x_8 = x_14;
+x_7 = x_14;
+x_8 = lean_box(0);
 x_9 = x_17;
 goto block_13;
 }
 else
 {
-x_7 = lean_box(0);
-x_8 = x_14;
+x_7 = x_14;
+x_8 = lean_box(0);
 x_9 = x_16;
 goto block_13;
 }
@@ -2113,7 +2113,7 @@ _start:
 {
 lean_object* x_1; lean_object* x_2; 
 x_1 = lean_box(0);
-x_2 = l_Lean_Expr_sort___override(x_1);
+x_2 = l_Lean_mkSort(x_1);
 return x_2;
 }
 }
@@ -3252,7 +3252,7 @@ block_13:
 if (x_9 == 0)
 {
 lean_object* x_10; lean_object* x_11; 
-lean_dec_ref(x_8);
+lean_dec_ref(x_7);
 x_10 = lean_box(0);
 x_11 = lean_alloc_ctor(0, 1, 0);
 lean_ctor_set(x_11, 0, x_10);
@@ -3262,7 +3262,7 @@ else
 {
 lean_object* x_12; 
 x_12 = lean_alloc_ctor(1, 1, 0);
-lean_ctor_set(x_12, 0, x_8);
+lean_ctor_set(x_12, 0, x_7);
 return x_12;
 }
 }
@@ -3275,15 +3275,15 @@ if (x_16 == 0)
 uint8_t x_17; 
 lean_inc_ref(x_14);
 x_17 = l_Lean_Exception_isRuntime(x_14);
-x_7 = lean_box(0);
-x_8 = x_14;
+x_7 = x_14;
+x_8 = lean_box(0);
 x_9 = x_17;
 goto block_13;
 }
 else
 {
-x_7 = lean_box(0);
-x_8 = x_14;
+x_7 = x_14;
+x_8 = lean_box(0);
 x_9 = x_16;
 goto block_13;
 }

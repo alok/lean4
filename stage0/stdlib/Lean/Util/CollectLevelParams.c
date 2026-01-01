@@ -1107,12 +1107,15 @@ return x_28;
 }
 case 3:
 {
-lean_object* x_29; lean_object* x_30; 
+lean_object* x_29; lean_object* x_30; lean_object* x_31; lean_object* x_32; 
 x_29 = lean_ctor_get(x_1, 0);
 lean_inc(x_29);
+x_30 = lean_ctor_get(x_1, 1);
+lean_inc(x_30);
 lean_dec_ref(x_1);
-x_30 = l_Lean_CollectLevelParams_visitLevel(x_29, x_2);
-return x_30;
+x_31 = l_Lean_CollectLevelParams_visitLevel(x_29, x_2);
+x_32 = l_Lean_CollectLevelParams_visitLevel(x_30, x_31);
+return x_32;
 }
 default: 
 {
