@@ -37,6 +37,18 @@ To get verbose output from ctest pass the `--verbose` command line
 option. Test output is normally suppressed and only summary
 information is displayed. This option will show all test output.
 
+## External kernel checkers
+
+For kernel changes, it is useful to replay `.olean` files using external
+checkers. A helper script is provided:
+
+```
+./script/run_external_checkers.sh
+```
+
+You can pass a single module name to check just one file, e.g.
+`./script/run_external_checkers.sh Lean.Core`.
+
 ## Test Suite Organization
 
 All these tests are included by [src/shell/CMakeLists.txt](https://github.com/leanprover/lean4/blob/master/src/shell/CMakeLists.txt):
