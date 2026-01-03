@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 Author: Leonardo de Moura
 */
+#include <cstdint>
 #include "kernel/init_module.h"
 #include "kernel/environment.h"
 #include "kernel/type_checker.h"
@@ -17,6 +18,10 @@ Author: Leonardo de Moura
 
 namespace lean {
 void initialize_kernel_module() {
+#ifdef LEAN_RUST_KERNEL
+    extern "C" uint8_t lean_kernel_rs_ping();
+    (void)lean_kernel_rs_ping();
+#endif
     initialize_level();
     initialize_expr();
     initialize_declaration();

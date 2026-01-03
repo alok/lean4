@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 Author: Leonardo de Moura
 */
+#include <cstdint>
 #include "runtime/alloc.h"
 #include "runtime/debug.h"
 #include "runtime/thread.h"
@@ -17,6 +18,10 @@ Author: Leonardo de Moura
 
 namespace lean {
 extern "C" LEAN_EXPORT void lean_initialize_runtime_module() {
+#ifdef LEAN_RUST_RUNTIME
+    extern "C" uint8_t lean_runtime_rs_ping();
+    (void)lean_runtime_rs_ping();
+#endif
     initialize_alloc();
     initialize_debug();
     initialize_object();

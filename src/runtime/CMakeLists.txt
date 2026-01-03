@@ -37,6 +37,11 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 target_compile_options(leanrt PRIVATE -ULEAN_EXPORTING)
 endif()
 
+if(LEAN_RUST_RUNTIME)
+  target_compile_definitions(leanrt_initial-exec PRIVATE LEAN_RUST_RUNTIME)
+  target_compile_definitions(leanrt PRIVATE LEAN_RUST_RUNTIME)
+endif()
+
 if(LLVM)
   if (NOT (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
       message(FATAL_ERROR "building 'lean.h.bc', need CMAKE_CXX_COMPILER_ID to match Clang to build LLVM bitcode file of Lean runtime.")
