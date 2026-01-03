@@ -1,0 +1,7 @@
+[workspace]
+members = ["kernel", "runtime"]
+resolver = "2"
+
+[profile.release]
+# Keep debug info for profiling; override as needed per build.
+debug = 1

@@ -90,6 +90,8 @@ option(USE_MIMALLOC "use mimalloc" ON)
 option(CHECK_OLEAN_VERSION "Only load .olean files compiled with the current version of Lean" OFF)
 option(USE_LAKE "Use Lake instead of lean.mk for building core libs from language server" ON)
 option(USE_LAKE_CACHE "Use the Lake artifact cache for stage 1 builds (requires USE_LAKE)" OFF)
+option(LEAN_RUST_KERNEL "Build Rust kernel (experimental)" OFF)
+option(LEAN_RUST_RUNTIME "Build Rust runtime (experimental)" OFF)
 
 set(LEAN_EXTRA_MAKE_OPTS  ""                           CACHE STRING "extra options to lean --make")
 set(LEANC_CC              ${CMAKE_C_COMPILER}          CACHE STRING "C compiler to use in `leanc`")
@@ -652,6 +654,44 @@ else()
   set(LEAN_OBJS ${LEAN_OBJS} $<TARGET_OBJECTS:library>)
   add_subdirectory(library/constructions)
   set(LEAN_OBJS ${LEAN_OBJS} $<TARGET_OBJECTS:constructions>)
+
+  if(LEAN_RUST_KERNEL OR LEAN_RUST_RUNTIME)
+    find_program(CARGO_BIN cargo)
+    if(NOT CARGO_BIN)
+      message(FATAL_ERROR "cargo not found but LEAN_RUST_KERNEL/LEAN_RUST_RUNTIME enabled")
+    endif()
+
+    set(RUST_SRC_DIR "${LEAN_SOURCE_DIR}/src/rust")
+    set(RUST_TARGET_DIR "${CMAKE_BINARY_DIR}/rust-target")
+    if(CMAKE_BUILD_TYPE MATCHES "Release|RelWithDebInfo|MinSizeRel")
+      set(RUST_PROFILE "release")
+      set(RUST_PROFILE_FLAG "--release")
+    else()
+      set(RUST_PROFILE "debug")
+      set(RUST_PROFILE_FLAG "")
+    endif()
+
+    set(RUST_BUILD_PKGS "")
+    set(RUST_OUTPUTS "")
+    if(LEAN_RUST_KERNEL)
+      list(APPEND RUST_BUILD_PKGS --package kernel_rs)
+      list(APPEND RUST_OUTPUTS "${RUST_TARGET_DIR}/${RUST_PROFILE}/libkernel_rs.a")
+    endif()
+    if(LEAN_RUST_RUNTIME)
+      list(APPEND RUST_BUILD_PKGS --package runtime_rs)
+      list(APPEND RUST_OUTPUTS "${RUST_TARGET_DIR}/${RUST_PROFILE}/libruntime_rs.a")
+    endif()
+
+    add_custom_command(
+      OUTPUT ${RUST_OUTPUTS}
+      COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${RUST_TARGET_DIR} ${CARGO_BIN}
+              build --manifest-path ${RUST_SRC_DIR}/Cargo.toml ${RUST_BUILD_PKGS} ${RUST_PROFILE_FLAG}
+      WORKING_DIRECTORY ${RUST_SRC_DIR}
+      COMMENT "Building Rust kernel/runtime"
+      VERBATIM)
+
+    add_custom_target(rust_kernel_runtime ALL DEPENDS ${RUST_OUTPUTS})
+  endif()
 
   # leancpp without `initialize` (see `leaninitialize` above)
   add_library(leancpp_1 STATIC ${LEAN_OBJS})
