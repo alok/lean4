@@ -17,9 +17,12 @@ Author: Leonardo de Moura
 #include "runtime/libuv.h"
 
 namespace lean {
+#ifdef LEAN_RUST_RUNTIME
+extern "C" uint8_t lean_runtime_rs_ping();
+#endif
+
 extern "C" LEAN_EXPORT void lean_initialize_runtime_module() {
 #ifdef LEAN_RUST_RUNTIME
-    extern "C" uint8_t lean_runtime_rs_ping();
     (void)lean_runtime_rs_ping();
 #endif
     initialize_alloc();

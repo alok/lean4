@@ -17,9 +17,12 @@ Author: Leonardo de Moura
 #include "kernel/trace.h"
 
 namespace lean {
+#ifdef LEAN_RUST_KERNEL
+extern "C" uint8_t lean_kernel_rs_ping();
+#endif
+
 void initialize_kernel_module() {
 #ifdef LEAN_RUST_KERNEL
-    extern "C" uint8_t lean_kernel_rs_ping();
     (void)lean_kernel_rs_ping();
 #endif
     initialize_level();

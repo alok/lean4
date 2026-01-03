@@ -22,6 +22,12 @@ extern "C" unsigned lean_level_hash(obj_arg l);
 extern "C" unsigned lean_level_depth(obj_arg l);
 extern "C" uint8 lean_level_has_mvar(obj_arg l);
 extern "C" uint8 lean_level_has_param(obj_arg l);
+#ifdef LEAN_RUST_KERNEL
+extern "C" unsigned lean_level_hash_rs(obj_arg l);
+extern "C" unsigned lean_level_depth_rs(obj_arg l);
+extern "C" uint8 lean_level_has_mvar_rs(obj_arg l);
+extern "C" uint8 lean_level_has_param_rs(obj_arg l);
+#endif
 
 extern "C" object * lean_level_mk_zero(object*);
 extern "C" object * lean_level_mk_succ(obj_arg);
@@ -36,10 +42,57 @@ level mk_imax_core(level const & l1, level const & l2) { return level(lean_level
 level mk_univ_param(name const & n) { return level(lean_level_mk_param(n.to_obj_arg())); }
 level mk_univ_mvar(name const & n) { return level(lean_level_mk_mvar(n.to_obj_arg())); }
 
-unsigned level::hash() const { return lean_level_hash(to_obj_arg()); }
-unsigned get_depth(level const & l) { return lean_level_depth(l.to_obj_arg()); }
-bool has_param(level const & l) { return lean_level_has_param(l.to_obj_arg()); }
-bool has_mvar(level const & l) { return lean_level_has_mvar(l.to_obj_arg()); }
+unsigned level::hash() const {
+#ifdef LEAN_RUST_KERNEL
+    unsigned h_rs = lean_level_hash_rs(to_obj_arg());
+#ifdef LEAN_DEBUG
+    unsigned h = lean_level_hash(to_obj_arg());
+    lean_assert(h_rs == h);
+#endif
+    return h_rs;
+#else
+    return lean_level_hash(to_obj_arg());
+#endif
+}
+
+unsigned get_depth(level const & l) {
+#ifdef LEAN_RUST_KERNEL
+    unsigned d_rs = lean_level_depth_rs(l.to_obj_arg());
+#ifdef LEAN_DEBUG
+    unsigned d = lean_level_depth(l.to_obj_arg());
+    lean_assert(d_rs == d);
+#endif
+    return d_rs;
+#else
+    return lean_level_depth(l.to_obj_arg());
+#endif
+}
+
+bool has_param(level const & l) {
+#ifdef LEAN_RUST_KERNEL
+    uint8 hp_rs = lean_level_has_param_rs(l.to_obj_arg());
+#ifdef LEAN_DEBUG
+    uint8 hp = lean_level_has_param(l.to_obj_arg());
+    lean_assert(hp_rs == hp);
+#endif
+    return hp_rs != 0;
+#else
+    return lean_level_has_param(l.to_obj_arg());
+#endif
+}
+
+bool has_mvar(level const & l) {
+#ifdef LEAN_RUST_KERNEL
+    uint8 hm_rs = lean_level_has_mvar_rs(l.to_obj_arg());
+#ifdef LEAN_DEBUG
+    uint8 hm = lean_level_has_mvar(l.to_obj_arg());
+    lean_assert(hm_rs == hm);
+#endif
+    return hm_rs != 0;
+#else
+    return lean_level_has_mvar(l.to_obj_arg());
+#endif
+}
 
 extern "C" LEAN_EXPORT uint64_t lean_level_mk_data (uint64_t h, object * depth, uint8_t hasMVar, uint8_t hasParam) {
     if (!is_scalar(depth))
