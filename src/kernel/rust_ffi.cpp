@@ -48,6 +48,10 @@ extern "C" size_t lean_rs_sarray_size(lean_object * o) {
     return lean_sarray_size(o);
 }
 
+extern "C" size_t lean_rs_sarray_elem_size(lean_object * o) {
+    return lean_sarray_elem_size(o);
+}
+
 extern "C" uint8_t * lean_rs_sarray_cptr(lean_object * o) {
     return lean_sarray_cptr(o);
 }

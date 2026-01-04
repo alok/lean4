@@ -30,6 +30,7 @@ mod ffi {
         pub fn lean_rs_array_size(o: *mut LeanObject) -> usize;
         pub fn lean_rs_array_cptr(o: *mut LeanObject) -> *mut *mut LeanObject;
         pub fn lean_rs_sarray_size(o: *mut LeanObject) -> usize;
+        pub fn lean_rs_sarray_elem_size(o: *mut LeanObject) -> usize;
         pub fn lean_rs_sarray_cptr(o: *mut LeanObject) -> *mut u8;
         pub fn lean_rs_string_size(o: *mut LeanObject) -> usize;
         pub fn lean_rs_string_len(o: *mut LeanObject) -> usize;
