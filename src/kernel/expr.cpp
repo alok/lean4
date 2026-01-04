@@ -180,7 +180,8 @@ unsigned get_loose_bvar_range(expr const & e) {
 #endif
 }
 
-extern "C" LEAN_EXPORT uint64_t lean_expr_mk_data(uint64_t hash, object * bvarRange, uint32_t approxDepth, uint8_t hasFVar, uint8_t hasExprMVar, uint8_t hasLevelMVar, uint8_t hasLevelParam) {
+#if !defined(LEAN_RUST_KERNEL) || defined(LEAN_DEBUG)
+static inline uint64_t lean_expr_mk_data_cpp(uint64_t hash, object * bvarRange, uint32_t approxDepth, uint8_t hasFVar, uint8_t hasExprMVar, uint8_t hasLevelMVar, uint8_t hasLevelParam) {
     if (approxDepth > 255) approxDepth = 255;
     if (!is_scalar(bvarRange)) lean_internal_panic("too many bound variables");
     size_t range = unbox(bvarRange);
@@ -191,16 +192,51 @@ extern "C" LEAN_EXPORT uint64_t lean_expr_mk_data(uint64_t hash, object * bvarRa
     + (((uint64_t) hasExprMVar) << 41) + (((uint64_t) hasLevelMVar) << 42) + (((uint64_t) hasLevelParam) << 43)
     + (((uint64_t) r) << 44);
 }
+#endif
+
+#ifdef LEAN_RUST_KERNEL
+extern "C" uint64_t lean_expr_mk_data_rs(uint64_t hash, object * bvarRange, uint32_t approxDepth, uint8_t hasFVar, uint8_t hasExprMVar, uint8_t hasLevelMVar, uint8_t hasLevelParam);
+#endif
+extern "C" LEAN_EXPORT uint64_t lean_expr_mk_data(uint64_t hash, object * bvarRange, uint32_t approxDepth, uint8_t hasFVar, uint8_t hasExprMVar, uint8_t hasLevelMVar, uint8_t hasLevelParam) {
+#ifdef LEAN_RUST_KERNEL
+    uint64_t data_rs = lean_expr_mk_data_rs(hash, bvarRange, approxDepth, hasFVar, hasExprMVar, hasLevelMVar, hasLevelParam);
+#ifdef LEAN_DEBUG
+    uint64_t data = lean_expr_mk_data_cpp(hash, bvarRange, approxDepth, hasFVar, hasExprMVar, hasLevelMVar, hasLevelParam);
+    lean_assert(data_rs == data);
+#endif
+    return data_rs;
+#else
+    return lean_expr_mk_data_cpp(hash, bvarRange, approxDepth, hasFVar, hasExprMVar, hasLevelMVar, hasLevelParam);
+#endif
+}
 
 inline uint16_t get_approx_depth(uint64_t data) { return (data >> 32) & 255; }
 inline uint32_t get_bvar_range(uint64_t data) { return data >> 44; }
 
+#if !defined(LEAN_RUST_KERNEL) || defined(LEAN_DEBUG)
+static inline uint64_t lean_expr_mk_app_data_cpp(uint64_t fData, uint64_t aData) {
+    uint16_t depth = std::max(get_approx_depth(fData), get_approx_depth(aData)) + 1;
+    if (depth > 255) depth = 255;
+    uint32_t range = std::max(get_bvar_range(fData), get_bvar_range(aData));
+    uint32_t h = hash(fData, aData);
+    return ((fData | aData) & (((uint64_t) 15) << 40)) | ((uint64_t) h) | (((uint64_t) depth) << 32) | (((uint64_t) range) << 44);
+}
+#endif
+
+#ifdef LEAN_RUST_KERNEL
+extern "C" uint64_t lean_expr_mk_app_data_rs(uint64_t fData, uint64_t aData);
+#endif
 extern "C" LEAN_EXPORT uint64_t lean_expr_mk_app_data(uint64_t fData, uint64_t aData) {
-  uint16_t depth = std::max(get_approx_depth(fData), get_approx_depth(aData)) + 1;
-  if (depth > 255) depth = 255;
-  uint32_t range = std::max(get_bvar_range(fData), get_bvar_range(aData));
-  uint32_t h = hash(fData, aData);
-  return ((fData | aData) & (((uint64_t) 15) << 40)) | ((uint64_t) h) | (((uint64_t) depth) << 32) | (((uint64_t) range) << 44);
+#ifdef LEAN_RUST_KERNEL
+    uint64_t data_rs = lean_expr_mk_app_data_rs(fData, aData);
+#ifdef LEAN_DEBUG
+    uint64_t data = lean_expr_mk_app_data_cpp(fData, aData);
+    lean_assert(data_rs == data);
+#endif
+    return data_rs;
+#else
+    return lean_expr_mk_app_data_cpp(fData, aData);
+#endif
 }
 
 // =======================================

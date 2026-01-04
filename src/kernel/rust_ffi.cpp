@@ -15,3 +15,7 @@ extern "C" uint32_t lean_rs_ctor_num_objs(lean_object * o) {
 extern "C" uint64_t lean_rs_ctor_get_uint64(lean_object * o, uint32_t offset) {
     return lean_ctor_get_uint64(o, offset);
 }
+
+extern "C" size_t lean_rs_unbox(lean_object * o) {
+    return lean_unbox(o);
+}
