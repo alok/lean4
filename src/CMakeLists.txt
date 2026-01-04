@@ -646,15 +646,6 @@ else()
     add_dependencies(leanrt_initial-exec libuv)
   endif()
 
-  add_subdirectory(util)
-  set(LEAN_OBJS ${LEAN_OBJS} $<TARGET_OBJECTS:util>)
-  add_subdirectory(kernel)
-  set(LEAN_OBJS ${LEAN_OBJS} $<TARGET_OBJECTS:kernel>)
-  add_subdirectory(library)
-  set(LEAN_OBJS ${LEAN_OBJS} $<TARGET_OBJECTS:library>)
-  add_subdirectory(library/constructions)
-  set(LEAN_OBJS ${LEAN_OBJS} $<TARGET_OBJECTS:constructions>)
-
   if(LEAN_RUST_KERNEL OR LEAN_RUST_RUNTIME)
     find_program(CARGO_BIN cargo)
     if(NOT CARGO_BIN)
@@ -683,6 +674,7 @@ else()
       list(APPEND RUST_DEPS
         "${RUST_SRC_DIR}/kernel/Cargo.toml"
         "${RUST_SRC_DIR}/kernel/src/lib.rs")
+      string(APPEND LEANC_STATIC_LINKER_FLAGS " ${RUST_KERNEL_LIB}")
     endif()
     if(LEAN_RUST_RUNTIME)
       list(APPEND RUST_BUILD_PKGS --package runtime_rs)
@@ -691,6 +683,7 @@ else()
       list(APPEND RUST_DEPS
         "${RUST_SRC_DIR}/runtime/Cargo.toml"
         "${RUST_SRC_DIR}/runtime/src/lib.rs")
+      string(APPEND LEANC_STATIC_LINKER_FLAGS " ${RUST_RUNTIME_LIB}")
     endif()
 
     add_custom_command(
@@ -716,6 +709,15 @@ else()
       string(APPEND LEANSHARED_LINKER_FLAGS " ${RUST_RUNTIME_LIB}")
     endif()
   endif()
+
+  add_subdirectory(util)
+  set(LEAN_OBJS ${LEAN_OBJS} $<TARGET_OBJECTS:util>)
+  add_subdirectory(kernel)
+  set(LEAN_OBJS ${LEAN_OBJS} $<TARGET_OBJECTS:kernel>)
+  add_subdirectory(library)
+  set(LEAN_OBJS ${LEAN_OBJS} $<TARGET_OBJECTS:library>)
+  add_subdirectory(library/constructions)
+  set(LEAN_OBJS ${LEAN_OBJS} $<TARGET_OBJECTS:constructions>)
 
   # leancpp without `initialize` (see `leaninitialize` above)
   add_library(leancpp_1 STATIC ${LEAN_OBJS})
