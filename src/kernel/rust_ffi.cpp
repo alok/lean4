@@ -19,3 +19,11 @@ extern "C" uint64_t lean_rs_ctor_get_uint64(lean_object * o, uint32_t offset) {
 extern "C" size_t lean_rs_unbox(lean_object * o) {
     return lean_unbox(o);
 }
+
+extern "C" uint32_t lean_rs_obj_tag(lean_object * o) {
+    return lean_obj_tag(o);
+}
+
+extern "C" lean_object * lean_rs_ctor_get(lean_object * o, uint32_t i) {
+    return lean_ctor_get(o, i);
+}

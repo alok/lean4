@@ -73,7 +73,21 @@ bool is_atomic(expr const & e) {
 }
 
 extern "C" uint8 lean_expr_binder_info(object * e);
-binder_info binding_info(expr const & e) { return static_cast<binder_info>(lean_expr_binder_info(e.to_obj_arg())); }
+#ifdef LEAN_RUST_KERNEL
+extern "C" uint8 lean_expr_binder_info_rs(object * e);
+#endif
+binder_info binding_info(expr const & e) {
+#ifdef LEAN_RUST_KERNEL
+    uint8 bi_rs = lean_expr_binder_info_rs(e.to_obj_arg());
+#ifdef LEAN_DEBUG
+    uint8 bi = lean_expr_binder_info(e.to_obj_arg());
+    lean_assert(bi_rs == bi);
+#endif
+    return static_cast<binder_info>(bi_rs);
+#else
+    return static_cast<binder_info>(lean_expr_binder_info(e.to_obj_arg()));
+#endif
+}
 
 extern "C" object * lean_lit_type(obj_arg e);
 expr lit_type(literal const & lit) { return expr(lean_lit_type(lit.to_obj_arg())); }

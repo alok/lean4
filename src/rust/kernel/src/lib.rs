@@ -13,6 +13,8 @@ extern "C" {
     fn lean_rs_ctor_num_objs(o: *mut LeanObject) -> c_uint;
     fn lean_rs_ctor_get_uint64(o: *mut LeanObject, offset: c_uint) -> u64;
     fn lean_rs_unbox(o: *mut LeanObject) -> usize;
+    fn lean_rs_obj_tag(o: *mut LeanObject) -> c_uint;
+    fn lean_rs_ctor_get(o: *mut LeanObject, idx: c_uint) -> *mut LeanObject;
     fn lean_uint64_mix_hash(a1: u64, a2: u64) -> u64;
     fn lean_internal_panic(msg: *const c_char) -> !;
 }
@@ -76,6 +78,10 @@ fn expr_data_has_level_mvar(data: u64) -> c_uchar {
 fn expr_data_has_level_param(data: u64) -> c_uchar {
     ((data >> 43) & 1) as c_uchar
 }
+
+const EXPR_LAM_TAG: c_uint = 6;
+const EXPR_PI_TAG: c_uint = 7;
+const DEFAULT_BINDER_INFO: c_uchar = 0;
 
 #[no_mangle]
 pub extern "C" fn lean_level_hash_rs(o: *mut LeanObject) -> u32 {
@@ -177,6 +183,16 @@ pub extern "C" fn lean_expr_loose_bvar_range_rs(o: *mut LeanObject) -> u32 {
         None => 0,
         Some(data) => expr_data_loose_bvar_range(data),
     }
+}
+
+#[no_mangle]
+pub extern "C" fn lean_expr_binder_info_rs(o: *mut LeanObject) -> c_uchar {
+    let tag = unsafe { lean_rs_obj_tag(o) };
+    if tag == EXPR_LAM_TAG || tag == EXPR_PI_TAG {
+        let bi_obj = unsafe { lean_rs_ctor_get(o, 3) };
+        return unsafe { lean_rs_unbox(bi_obj) as c_uchar };
+    }
+    DEFAULT_BINDER_INFO
 }
 
 #[no_mangle]
