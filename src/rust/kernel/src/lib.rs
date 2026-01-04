@@ -1,6 +1,7 @@
 #![allow(clippy::missing_safety_doc)]
 
 mod bitfield;
+mod layout;
 mod object;
 mod ptr;
 

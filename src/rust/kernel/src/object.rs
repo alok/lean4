@@ -1,4 +1,5 @@
 use crate::ffi;
+use crate::layout;
 use crate::LeanObject;
 use crate::ptr;
 use libc::c_uint;
@@ -191,12 +192,12 @@ impl<'a> LeanObj<'a> {
 
     #[inline(always)]
     pub fn array_size(self) -> usize {
-        unsafe { ffi::lean_rs_array_size(self.ptr) }
+        unsafe { layout::array_obj(self.ptr).size }
     }
 
     #[inline(always)]
     pub fn array_cptr(self) -> *mut *mut LeanObject {
-        unsafe { ffi::lean_rs_array_cptr(self.ptr) }
+        unsafe { layout::array_obj(self.ptr).data.as_ptr() as *mut *mut LeanObject }
     }
 
     #[inline(always)]
@@ -211,7 +212,7 @@ impl<'a> LeanObj<'a> {
 
     #[inline(always)]
     pub fn sarray_size(self) -> usize {
-        unsafe { ffi::lean_rs_sarray_size(self.ptr) }
+        unsafe { layout::sarray_obj(self.ptr).size }
     }
 
     #[inline(always)]
@@ -221,7 +222,7 @@ impl<'a> LeanObj<'a> {
 
     #[inline(always)]
     pub fn sarray_cptr(self) -> *mut u8 {
-        unsafe { ffi::lean_rs_sarray_cptr(self.ptr) }
+        unsafe { layout::sarray_obj(self.ptr).data.as_ptr() as *mut u8 }
     }
 
     #[inline(always)]
@@ -240,17 +241,17 @@ impl<'a> LeanObj<'a> {
 
     #[inline(always)]
     pub fn string_size(self) -> usize {
-        unsafe { ffi::lean_rs_string_size(self.ptr) }
+        unsafe { layout::string_obj(self.ptr).size }
     }
 
     #[inline(always)]
     pub fn string_len(self) -> usize {
-        unsafe { ffi::lean_rs_string_len(self.ptr) }
+        unsafe { layout::string_obj(self.ptr).length }
     }
 
     #[inline(always)]
     pub fn string_cstr(self) -> *const u8 {
-        unsafe { ffi::lean_rs_string_cstr(self.ptr) as *const u8 }
+        unsafe { layout::string_obj(self.ptr).data.as_ptr() as *const u8 }
     }
 
     #[inline(always)]
