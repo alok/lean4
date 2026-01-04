@@ -18,6 +18,7 @@ extern "C" {
 }
 
 const TOO_MANY_BVARS: &[u8] = b"too many bound variables\0";
+const LEVEL_DEPTH_TOO_BIG: &[u8] = b"universe level depth is too big\0";
 
 fn data_for(o: *mut LeanObject) -> Option<u64> {
     if o.is_null() {
@@ -106,6 +107,28 @@ pub extern "C" fn lean_level_has_param_rs(o: *mut LeanObject) -> c_uchar {
         None => 0,
         Some(data) => level_data_has_param(data),
     }
+}
+
+#[no_mangle]
+pub extern "C" fn lean_level_mk_data_rs(
+    hash: u64,
+    depth: *mut LeanObject,
+    has_mvar: c_uchar,
+    has_param: c_uchar,
+) -> u64 {
+    let is_scalar = unsafe { lean_rs_is_scalar(depth) } != 0;
+    if !is_scalar {
+        unsafe { lean_internal_panic(LEVEL_DEPTH_TOO_BIG.as_ptr() as *const c_char) };
+    }
+    let d = unsafe { lean_rs_unbox(depth) };
+    if d > 16_777_215 {
+        unsafe { lean_internal_panic(LEVEL_DEPTH_TOO_BIG.as_ptr() as *const c_char) };
+    }
+    let h1 = hash as u32;
+    (h1 as u64)
+        | ((has_mvar as u64) << 32)
+        | ((has_param as u64) << 33)
+        | ((d as u64) << 40)
 }
 
 #[no_mangle]

@@ -94,7 +94,8 @@ bool has_mvar(level const & l) {
 #endif
 }
 
-extern "C" LEAN_EXPORT uint64_t lean_level_mk_data (uint64_t h, object * depth, uint8_t hasMVar, uint8_t hasParam) {
+#if !defined(LEAN_RUST_KERNEL) || defined(LEAN_DEBUG)
+static inline uint64_t lean_level_mk_data_cpp(uint64_t h, object * depth, uint8_t hasMVar, uint8_t hasParam) {
     if (!is_scalar(depth))
         lean_internal_panic("universe level depth is too big");
     size_t d = unbox(depth);
@@ -102,6 +103,23 @@ extern "C" LEAN_EXPORT uint64_t lean_level_mk_data (uint64_t h, object * depth, 
         lean_internal_panic("universe level depth is too big");
     uint32_t h1 = h;
     return ((uint64_t) h1) + (((uint64_t) hasMVar) << 32) + (((uint64_t) hasParam) << 33) + (((uint64_t)d) << 40);
+}
+#endif
+
+#ifdef LEAN_RUST_KERNEL
+extern "C" uint64_t lean_level_mk_data_rs(uint64_t h, object * depth, uint8_t hasMVar, uint8_t hasParam);
+#endif
+extern "C" LEAN_EXPORT uint64_t lean_level_mk_data (uint64_t h, object * depth, uint8_t hasMVar, uint8_t hasParam) {
+#ifdef LEAN_RUST_KERNEL
+    uint64_t data_rs = lean_level_mk_data_rs(h, depth, hasMVar, hasParam);
+#ifdef LEAN_DEBUG
+    uint64_t data = lean_level_mk_data_cpp(h, depth, hasMVar, hasParam);
+    lean_assert(data_rs == data);
+#endif
+    return data_rs;
+#else
+    return lean_level_mk_data_cpp(h, depth, hasMVar, hasParam);
+#endif
 }
 
 bool is_explicit(level const & l) {
