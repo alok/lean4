@@ -2,6 +2,7 @@
 
 mod bitfield;
 mod object;
+mod ptr;
 
 use libc::{c_char, c_uchar};
 use static_assertions::const_assert;
@@ -38,6 +39,7 @@ mod ffi {
 
 use bitfield as bf;
 use object::LeanObj;
+use ptr as lean_ptr;
 
 const TOO_MANY_BVARS: &[u8] = b"too many bound variables\0";
 const LEVEL_DEPTH_TOO_BIG: &[u8] = b"universe level depth is too big\0";
@@ -208,11 +210,11 @@ pub extern "C" fn lean_level_mk_data_rs(
     has_mvar: c_uchar,
     has_param: c_uchar,
 ) -> u64 {
-    let is_scalar = unsafe { ffi::lean_rs_is_scalar(depth) } != 0;
+    let is_scalar = lean_ptr::is_scalar_ptr(depth);
     if !is_scalar {
         unsafe { ffi::lean_internal_panic(LEVEL_DEPTH_TOO_BIG.as_ptr() as *const c_char) };
     }
-    let d = unsafe { ffi::lean_rs_unbox(depth) };
+    let d = lean_ptr::unbox_ptr(depth);
     if d > 16_777_215 {
         unsafe { ffi::lean_internal_panic(LEVEL_DEPTH_TOO_BIG.as_ptr() as *const c_char) };
     }
@@ -285,11 +287,11 @@ pub extern "C" fn lean_expr_mk_data_rs(
     if approx_depth > 255 {
         approx_depth = 255;
     }
-    let is_scalar = unsafe { ffi::lean_rs_is_scalar(bvar_range) } != 0;
+    let is_scalar = lean_ptr::is_scalar_ptr(bvar_range);
     if !is_scalar {
         unsafe { ffi::lean_internal_panic(TOO_MANY_BVARS.as_ptr() as *const c_char) };
     }
-    let range = unsafe { ffi::lean_rs_unbox(bvar_range) };
+    let range = lean_ptr::unbox_ptr(bvar_range);
     if range > 1_048_575 {
         unsafe { ffi::lean_internal_panic(TOO_MANY_BVARS.as_ptr() as *const c_char) };
     }

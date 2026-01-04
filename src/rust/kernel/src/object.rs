@@ -1,5 +1,6 @@
 use crate::ffi;
 use crate::LeanObject;
+use crate::ptr;
 use libc::c_uint;
 use std::marker::PhantomData;
 use std::mem;
@@ -28,7 +29,7 @@ impl<'a> LeanObj<'a> {
 
     #[inline(always)]
     pub fn is_scalar(self) -> bool {
-        unsafe { ffi::lean_rs_is_scalar(self.ptr) != 0 }
+        ptr::is_scalar_ptr(self.ptr)
     }
 
     #[inline(always)]
