@@ -79,28 +79,106 @@ extern "C" object * lean_lit_type(obj_arg e);
 expr lit_type(literal const & lit) { return expr(lean_lit_type(lit.to_obj_arg())); }
 
 extern "C" uint64_t lean_expr_hash(obj_arg e);
+#ifdef LEAN_RUST_KERNEL
+extern "C" uint64_t lean_expr_hash_rs(obj_arg e);
+#endif
 unsigned hash_core(expr const & e) {
+#ifdef LEAN_RUST_KERNEL
+    uint64_t h_rs = lean_expr_hash_rs(e.to_obj_arg());
+#ifdef LEAN_DEBUG
+    uint64_t h = lean_expr_hash(e.to_obj_arg());
+    lean_assert(h_rs == h);
+#endif
+    return h_rs;
+#else
     return lean_expr_hash(e.to_obj_arg());
+#endif
 }
 
 extern "C" uint8 lean_expr_has_fvar(obj_arg e);
+#ifdef LEAN_RUST_KERNEL
+extern "C" uint8 lean_expr_has_fvar_rs(obj_arg e);
+#endif
 bool has_fvar_core(expr const & e) {
+#ifdef LEAN_RUST_KERNEL
+    uint8 hv_rs = lean_expr_has_fvar_rs(e.to_obj_arg());
+#ifdef LEAN_DEBUG
+    uint8 hv = lean_expr_has_fvar(e.to_obj_arg());
+    lean_assert(hv_rs == hv);
+#endif
+    return hv_rs != 0;
+#else
     return lean_expr_has_fvar(e.to_obj_arg());
+#endif
 }
 
 extern "C" uint8 lean_expr_has_expr_mvar(obj_arg e);
+#ifdef LEAN_RUST_KERNEL
+extern "C" uint8 lean_expr_has_expr_mvar_rs(obj_arg e);
+#endif
 bool has_expr_mvar_core(expr const & e) {
+#ifdef LEAN_RUST_KERNEL
+    uint8 hv_rs = lean_expr_has_expr_mvar_rs(e.to_obj_arg());
+#ifdef LEAN_DEBUG
+    uint8 hv = lean_expr_has_expr_mvar(e.to_obj_arg());
+    lean_assert(hv_rs == hv);
+#endif
+    return hv_rs != 0;
+#else
     return lean_expr_has_expr_mvar(e.to_obj_arg());
+#endif
 }
 
 extern "C" uint8 lean_expr_has_level_mvar(obj_arg e);
-bool has_univ_mvar_core(expr const & e) { return lean_expr_has_level_mvar(e.to_obj_arg()); }
+#ifdef LEAN_RUST_KERNEL
+extern "C" uint8 lean_expr_has_level_mvar_rs(obj_arg e);
+#endif
+bool has_univ_mvar_core(expr const & e) {
+#ifdef LEAN_RUST_KERNEL
+    uint8 hv_rs = lean_expr_has_level_mvar_rs(e.to_obj_arg());
+#ifdef LEAN_DEBUG
+    uint8 hv = lean_expr_has_level_mvar(e.to_obj_arg());
+    lean_assert(hv_rs == hv);
+#endif
+    return hv_rs != 0;
+#else
+    return lean_expr_has_level_mvar(e.to_obj_arg());
+#endif
+}
 
 extern "C" uint8 lean_expr_has_level_param(obj_arg e);
-bool has_univ_param(expr const & e) { return lean_expr_has_level_param(e.to_obj_arg()); }
+#ifdef LEAN_RUST_KERNEL
+extern "C" uint8 lean_expr_has_level_param_rs(obj_arg e);
+#endif
+bool has_univ_param(expr const & e) {
+#ifdef LEAN_RUST_KERNEL
+    uint8 hv_rs = lean_expr_has_level_param_rs(e.to_obj_arg());
+#ifdef LEAN_DEBUG
+    uint8 hv = lean_expr_has_level_param(e.to_obj_arg());
+    lean_assert(hv_rs == hv);
+#endif
+    return hv_rs != 0;
+#else
+    return lean_expr_has_level_param(e.to_obj_arg());
+#endif
+}
 
 extern "C" unsigned lean_expr_loose_bvar_range(object * e);
-unsigned get_loose_bvar_range(expr const & e) { return lean_expr_loose_bvar_range(e.to_obj_arg()); }
+#ifdef LEAN_RUST_KERNEL
+extern "C" unsigned lean_expr_loose_bvar_range_rs(obj_arg e);
+#endif
+unsigned get_loose_bvar_range(expr const & e) {
+#ifdef LEAN_RUST_KERNEL
+    unsigned r_rs = lean_expr_loose_bvar_range_rs(e.to_obj_arg());
+#ifdef LEAN_DEBUG
+    unsigned r = lean_expr_loose_bvar_range(e.to_obj_arg());
+    lean_assert(r_rs == r);
+#endif
+    return r_rs;
+#else
+    return lean_expr_loose_bvar_range(e.to_obj_arg());
+#endif
+}
 
 extern "C" LEAN_EXPORT uint64_t lean_expr_mk_data(uint64_t hash, object * bvarRange, uint32_t approxDepth, uint8_t hasFVar, uint8_t hasExprMVar, uint8_t hasLevelMVar, uint8_t hasLevelParam) {
     if (approxDepth > 255) approxDepth = 255;

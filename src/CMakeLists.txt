@@ -675,19 +675,27 @@ else()
     set(RUST_OUTPUTS "")
     set(RUST_KERNEL_LIB "")
     set(RUST_RUNTIME_LIB "")
+    set(RUST_DEPS "${RUST_SRC_DIR}/Cargo.toml")
     if(LEAN_RUST_KERNEL)
       list(APPEND RUST_BUILD_PKGS --package kernel_rs)
       set(RUST_KERNEL_LIB "${RUST_TARGET_DIR}/${RUST_PROFILE}/libkernel_rs.a")
       list(APPEND RUST_OUTPUTS "${RUST_KERNEL_LIB}")
+      list(APPEND RUST_DEPS
+        "${RUST_SRC_DIR}/kernel/Cargo.toml"
+        "${RUST_SRC_DIR}/kernel/src/lib.rs")
     endif()
     if(LEAN_RUST_RUNTIME)
       list(APPEND RUST_BUILD_PKGS --package runtime_rs)
       set(RUST_RUNTIME_LIB "${RUST_TARGET_DIR}/${RUST_PROFILE}/libruntime_rs.a")
       list(APPEND RUST_OUTPUTS "${RUST_RUNTIME_LIB}")
+      list(APPEND RUST_DEPS
+        "${RUST_SRC_DIR}/runtime/Cargo.toml"
+        "${RUST_SRC_DIR}/runtime/src/lib.rs")
     endif()
 
     add_custom_command(
       OUTPUT ${RUST_OUTPUTS}
+      DEPENDS ${RUST_DEPS}
       COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${RUST_TARGET_DIR} ${CARGO_BIN}
               build --manifest-path ${RUST_SRC_DIR}/Cargo.toml ${RUST_BUILD_PKGS} ${RUST_PROFILE_FLAG}
       WORKING_DIRECTORY ${RUST_SRC_DIR}
