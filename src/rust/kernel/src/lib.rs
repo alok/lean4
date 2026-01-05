@@ -50,6 +50,7 @@ const EXPR_BVAR_RANGE_WIDTH: u32 = 20;
 const EXPR_DATA_BYTES: usize = std::mem::size_of::<u64>();
 const EXPR_LAM_TAG: u8 = 6;
 const EXPR_FORALL_TAG: u8 = 7;
+const EXPR_LET_TAG: u8 = 8;
 
 const_assert!(LEVEL_HASH_SHIFT + LEVEL_HASH_WIDTH <= 64);
 const_assert!(LEVEL_DEPTH_SHIFT + LEVEL_DEPTH_WIDTH <= 64);
@@ -277,6 +278,28 @@ pub extern "C" fn lean_expr_binder_info_rs(o: *mut LeanObject) -> c_uchar {
         let scalar_base = base.add(num_objs * std::mem::size_of::<*mut LeanObject>());
         let bi_ptr = scalar_base.add(EXPR_DATA_BYTES) as *const u8;
         std::ptr::read(bi_ptr) as c_uchar
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn lean_expr_is_have_rs(o: *mut LeanObject) -> c_uchar {
+    if o.is_null() {
+        return 0;
+    }
+    if lean_ptr::is_scalar_ptr(o) {
+        return 0;
+    }
+    unsafe {
+        let header = layout::header(o);
+        if header.tag != EXPR_LET_TAG {
+            return 0;
+        }
+        let ctor = layout::ctor_obj(o);
+        let num_objs = ctor.header.other as usize;
+        let base = ctor.objs.as_ptr() as *const u8;
+        let scalar_base = base.add(num_objs * std::mem::size_of::<*mut LeanObject>());
+        let nondep_ptr = scalar_base.add(EXPR_DATA_BYTES) as *const u8;
+        std::ptr::read(nondep_ptr) as c_uchar
     }
 }
 

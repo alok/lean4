@@ -424,9 +424,21 @@ bool is_default_var_name(name const & n) {
 }
 
 extern "C" uint8 lean_expr_is_have(object * e);
+#ifdef LEAN_RUST_KERNEL
+extern "C" uint8 lean_expr_is_have_rs(object * e);
+#endif
 bool let_nondep_core(expr const & e) {
     lean_assert(is_let(e));
+#ifdef LEAN_RUST_KERNEL
+    uint8 r_rs = lean_expr_is_have_rs(e.to_obj_arg());
+#ifdef LEAN_DEBUG
+    uint8 r = lean_expr_is_have(e.to_obj_arg());
+    lean_assert(r_rs == r);
+#endif
+    return r_rs;
+#else
     return lean_expr_is_have(e.to_obj_arg());
+#endif
 }
 
 // =======================================
