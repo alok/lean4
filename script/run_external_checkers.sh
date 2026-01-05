@@ -13,7 +13,7 @@ Env overrides:
   LEAN4LEAN_COMPARE Set to 1 to pass --compare to lean4lean
   LEAN4CHECKER_ARGS Extra args for lean4checker
   LEAN4LEAN_ARGS    Extra args for lean4lean
-  LAKE_BIN          Path to lake (default: lake)
+  LAKE_BIN          Path to lake (default: build/release/stage1/bin/lake if present, else lake)
 
 Defaults:
   ../lean4checker/.lake/build/bin/lean4checker
@@ -27,8 +27,20 @@ if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
 fi
 
 module=${1:-}
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+stage1_bin="$root/build/release/stage1/bin"
 
-lake_bin=${LAKE_BIN:-lake}
+if [[ -n ${LAKE_BIN:-} ]]; then
+  lake_bin="$LAKE_BIN"
+elif [[ -x "$stage1_bin/lake" ]]; then
+  lake_bin="$stage1_bin/lake"
+else
+  lake_bin="lake"
+fi
+
+if [[ -d "$stage1_bin" ]]; then
+  export PATH="$stage1_bin:$PATH"
+fi
 lean4checker_bin=${LEAN4CHECKER_BIN:-"$(pwd)/../lean4checker/.lake/build/bin/lean4checker"}
 lean4lean_bin=${LEAN4LEAN_BIN:-"$(pwd)/../lean4lean/.lake/build/bin/lean4lean"}
 
