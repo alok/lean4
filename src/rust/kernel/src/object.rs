@@ -2,7 +2,7 @@ use crate::layout;
 use crate::LeanObject;
 use crate::ptr;
 use std::marker::PhantomData;
-use std::ptr;
+use std::ptr as std_ptr;
 use std::slice;
 
 #[allow(dead_code)]
@@ -191,7 +191,7 @@ impl<'a> LeanObj<'a> {
     pub unsafe fn ctor_get_u64(self, offset: usize) -> u64 {
         let base = self.ctor_obj_ptr() as *const u8;
         let ptr = base.add(offset) as *const u64;
-        ptr::read(ptr)
+        std_ptr::read(ptr)
     }
 
     #[inline(always)]

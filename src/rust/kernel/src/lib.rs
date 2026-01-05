@@ -16,26 +16,12 @@ pub struct LeanObject {
 #[allow(dead_code)]
 mod ffi {
     use super::LeanObject;
-    use libc::{c_char, c_uchar, c_uint};
+    use libc::{c_char, c_uchar};
 
     extern "C" {
-        pub fn lean_rs_is_scalar(o: *mut LeanObject) -> c_uchar;
-        pub fn lean_rs_ctor_num_objs(o: *mut LeanObject) -> c_uint;
-        pub fn lean_rs_ctor_get_uint64(o: *mut LeanObject, offset: c_uint) -> u64;
-        pub fn lean_rs_unbox(o: *mut LeanObject) -> usize;
         pub fn lean_expr_binder_info(o: *mut LeanObject) -> c_uchar;
         pub fn lean_uint64_mix_hash(a1: u64, a2: u64) -> u64;
         pub fn lean_internal_panic(msg: *const c_char) -> !;
-        pub fn lean_rs_ctor_obj_cptr(o: *mut LeanObject) -> *mut *mut LeanObject;
-        pub fn lean_rs_ctor_scalar_cptr(o: *mut LeanObject) -> *mut u8;
-        pub fn lean_rs_array_size(o: *mut LeanObject) -> usize;
-        pub fn lean_rs_array_cptr(o: *mut LeanObject) -> *mut *mut LeanObject;
-        pub fn lean_rs_sarray_size(o: *mut LeanObject) -> usize;
-        pub fn lean_rs_sarray_elem_size(o: *mut LeanObject) -> usize;
-        pub fn lean_rs_sarray_cptr(o: *mut LeanObject) -> *mut u8;
-        pub fn lean_rs_string_size(o: *mut LeanObject) -> usize;
-        pub fn lean_rs_string_len(o: *mut LeanObject) -> usize;
-        pub fn lean_rs_string_cstr(o: *mut LeanObject) -> *const c_char;
     }
 }
 
