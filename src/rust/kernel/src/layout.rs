@@ -21,6 +21,12 @@ pub struct LeanArrayObject {
 }
 
 #[repr(C)]
+pub struct LeanCtorObject {
+    pub header: LeanObjectHeader,
+    pub objs: [*mut LeanObject; 0],
+}
+
+#[repr(C)]
 pub struct LeanSArrayObject {
     pub header: LeanObjectHeader,
     pub size: usize,
@@ -46,10 +52,16 @@ const_assert!(offset_of!(LeanStringObject, size) == mem::size_of::<LeanObjectHea
 const_assert!(offset_of!(LeanStringObject, capacity) == mem::size_of::<LeanObjectHeader>() + mem::size_of::<usize>());
 const_assert!(offset_of!(LeanStringObject, length) == mem::size_of::<LeanObjectHeader>() + 2 * mem::size_of::<usize>());
 const_assert!(offset_of!(LeanStringObject, data) == mem::size_of::<LeanObjectHeader>() + 3 * mem::size_of::<usize>());
+const_assert!(offset_of!(LeanCtorObject, objs) == mem::size_of::<LeanObjectHeader>());
 
 #[inline(always)]
 pub unsafe fn array_obj<'a>(ptr: *mut LeanObject) -> &'a LeanArrayObject {
     &*(ptr as *const LeanArrayObject)
+}
+
+#[inline(always)]
+pub unsafe fn ctor_obj<'a>(ptr: *mut LeanObject) -> &'a LeanCtorObject {
+    &*(ptr as *const LeanCtorObject)
 }
 
 #[inline(always)]

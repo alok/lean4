@@ -1,10 +1,8 @@
-use crate::ffi;
 use crate::layout;
 use crate::LeanObject;
 use crate::ptr;
-use libc::c_uint;
 use std::marker::PhantomData;
-use std::mem;
+use std::ptr;
 use std::slice;
 
 #[allow(dead_code)]
@@ -159,24 +157,23 @@ impl<'a> LeanObj<'a> {
 
     #[inline(always)]
     pub fn ctor_num_objs(self) -> usize {
-        unsafe { ffi::lean_rs_ctor_num_objs(self.ptr) as usize }
+        unsafe { layout::ctor_obj(self.ptr).header.other as usize }
     }
 
     #[inline(always)]
     pub fn ctor_data_u64(self) -> u64 {
-        let num_objs = self.ctor_num_objs();
-        let offset = (num_objs * mem::size_of::<*mut LeanObject>()) as c_uint;
-        unsafe { ffi::lean_rs_ctor_get_uint64(self.ptr, offset) }
+        let offset = self.ctor_num_objs() * std::mem::size_of::<*mut LeanObject>();
+        unsafe { self.ctor_get_u64(offset) }
     }
 
     #[inline(always)]
     pub fn ctor_obj_ptr(self) -> *mut *mut LeanObject {
-        unsafe { ffi::lean_rs_ctor_obj_cptr(self.ptr) }
+        unsafe { layout::ctor_obj(self.ptr).objs.as_ptr() as *mut *mut LeanObject }
     }
 
     #[inline(always)]
     pub fn ctor_scalar_ptr(self) -> *mut u8 {
-        unsafe { ffi::lean_rs_ctor_scalar_cptr(self.ptr) }
+        unsafe { self.ctor_obj_ptr().add(self.ctor_num_objs()) as *mut u8 }
     }
 
     #[inline(always)]
@@ -188,6 +185,13 @@ impl<'a> LeanObj<'a> {
     #[inline(always)]
     pub unsafe fn ctor_scalar_slice(self, len: usize) -> &'a [u8] {
         slice::from_raw_parts(self.ctor_scalar_ptr() as *const u8, len)
+    }
+
+    #[inline(always)]
+    pub unsafe fn ctor_get_u64(self, offset: usize) -> u64 {
+        let base = self.ctor_obj_ptr() as *const u8;
+        let ptr = base.add(offset) as *const u64;
+        ptr::read(ptr)
     }
 
     #[inline(always)]
@@ -217,7 +221,7 @@ impl<'a> LeanObj<'a> {
 
     #[inline(always)]
     pub fn sarray_elem_size(self) -> usize {
-        unsafe { ffi::lean_rs_sarray_elem_size(self.ptr) }
+        unsafe { layout::sarray_obj(self.ptr).header.other as usize }
     }
 
     #[inline(always)]
