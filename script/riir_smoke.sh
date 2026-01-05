@@ -37,6 +37,15 @@ case "$profile" in
       tests/lake/tests/externLib/test.sh
     )
     ;;
+  ffi)
+    default_modules=""
+    kernel_tests=()
+    ffi_tests=(
+      tests/lake/examples/ffi/test.sh
+      tests/lake/examples/reverse-ffi/test.sh
+      tests/lake/tests/externLib/test.sh
+    )
+    ;;
   *)
     echo "unknown RIIR_PROFILE: $profile (expected fast or full)" >&2
     exit 2
