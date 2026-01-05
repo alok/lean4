@@ -60,6 +60,11 @@ pub unsafe fn array_obj<'a>(ptr: *mut LeanObject) -> &'a LeanArrayObject {
 }
 
 #[inline(always)]
+pub unsafe fn header<'a>(ptr: *mut LeanObject) -> &'a LeanObjectHeader {
+    &*(ptr as *const LeanObjectHeader)
+}
+
+#[inline(always)]
 pub unsafe fn ctor_obj<'a>(ptr: *mut LeanObject) -> &'a LeanCtorObject {
     &*(ptr as *const LeanCtorObject)
 }

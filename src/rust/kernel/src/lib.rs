@@ -15,11 +15,9 @@ pub struct LeanObject {
 
 #[allow(dead_code)]
 mod ffi {
-    use super::LeanObject;
-    use libc::{c_char, c_uchar};
+    use libc::c_char;
 
     extern "C" {
-        pub fn lean_expr_binder_info(o: *mut LeanObject) -> c_uchar;
         pub fn lean_uint64_mix_hash(a1: u64, a2: u64) -> u64;
         pub fn lean_internal_panic(msg: *const c_char) -> !;
     }
@@ -49,6 +47,9 @@ const EXPR_HAS_LEVEL_MVAR_SHIFT: u32 = 42;
 const EXPR_HAS_LEVEL_PARAM_SHIFT: u32 = 43;
 const EXPR_BVAR_RANGE_SHIFT: u32 = 44;
 const EXPR_BVAR_RANGE_WIDTH: u32 = 20;
+const EXPR_DATA_BYTES: usize = std::mem::size_of::<u64>();
+const EXPR_LAM_TAG: u8 = 6;
+const EXPR_FORALL_TAG: u8 = 7;
 
 const_assert!(LEVEL_HASH_SHIFT + LEVEL_HASH_WIDTH <= 64);
 const_assert!(LEVEL_DEPTH_SHIFT + LEVEL_DEPTH_WIDTH <= 64);
@@ -259,7 +260,24 @@ pub extern "C" fn lean_expr_loose_bvar_range_rs(o: *mut LeanObject) -> u32 {
 
 #[no_mangle]
 pub extern "C" fn lean_expr_binder_info_rs(o: *mut LeanObject) -> c_uchar {
-    unsafe { ffi::lean_expr_binder_info(o) }
+    if o.is_null() {
+        return 0;
+    }
+    if lean_ptr::is_scalar_ptr(o) {
+        return 0;
+    }
+    unsafe {
+        let header = layout::header(o);
+        if header.tag != EXPR_LAM_TAG && header.tag != EXPR_FORALL_TAG {
+            return 0;
+        }
+        let ctor = layout::ctor_obj(o);
+        let num_objs = ctor.header.other as usize;
+        let base = ctor.objs.as_ptr() as *const u8;
+        let scalar_base = base.add(num_objs * std::mem::size_of::<*mut LeanObject>());
+        let bi_ptr = scalar_base.add(EXPR_DATA_BYTES) as *const u8;
+        std::ptr::read(bi_ptr) as c_uchar
+    }
 }
 
 #[no_mangle]
