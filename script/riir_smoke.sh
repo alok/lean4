@@ -7,6 +7,7 @@ lake_bin="${LAKE_BIN:-"$stage1_bin/lake"}"
 lean4checker_bin="${LEAN4CHECKER_BIN:-"$root/../lean4checker/.lake/build/bin/lean4checker"}"
 lean4lean_bin="${LEAN4LEAN_BIN:-"$root/../lean4lean/.lake/build/bin/lean4lean"}"
 lean4lean_args="${LEAN4LEAN_ARGS:-}"
+ffi_tests=()
 
 profile="${RIIR_PROFILE:-full}"
 
@@ -29,6 +30,11 @@ case "$profile" in
       kernel_maxheartbeats.lean
       decideTacticKernel.lean
       skipKernelTC.lean
+    )
+    ffi_tests=(
+      tests/lake/examples/ffi/test.sh
+      tests/lake/examples/reverse-ffi/test.sh
+      tests/lake/tests/externLib/test.sh
     )
     ;;
   *)
@@ -71,5 +77,11 @@ if [[ -n "$lean4checker_modules" ]]; then
   for m in $lean4checker_modules; do
     "$lake_bin" env "$lean4checker_bin" ${LEAN4CHECKER_ARGS:-} "$m"
     "$lake_bin" env "$lean4lean_bin" $lean4lean_args "$m"
+  done
+fi
+
+if [[ ${#ffi_tests[@]} -ne 0 ]]; then
+  for t in "${ffi_tests[@]}"; do
+    (cd "$root/$(dirname "$t")" && LAKE="$lake_bin" LAKE_NO_CACHE=1 LAKE_CACHE_DIR="" ./$(basename "$t"))
   done
 fi
