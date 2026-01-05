@@ -6,10 +6,41 @@ stage1_bin="${LEAN_STAGE1_BIN:-"$root/build/release/stage1/bin"}"
 lake_bin="${LAKE_BIN:-"$stage1_bin/lake"}"
 lean4checker_bin="${LEAN4CHECKER_BIN:-"$root/../lean4checker/.lake/build/bin/lean4checker"}"
 lean4lean_bin="${LEAN4LEAN_BIN:-"$root/../lean4lean/.lake/build/bin/lean4lean"}"
-lean4checker_modules="${LEAN4CHECKER_MODULES:-"Init Lean"}"
 lean4lean_args="${LEAN4LEAN_ARGS:-}"
 
-if [[ -n ${LEAN4LEAN_COMPARE:-} ]]; then
+profile="${RIIR_PROFILE:-full}"
+
+case "$profile" in
+  fast)
+    default_modules="Init Lean"
+    kernel_tests=(
+      kernel1.lean
+      kernel2.lean
+    )
+    ;;
+  full)
+    default_modules="Init Lean Std"
+    kernel_tests=(
+      kernel1.lean
+      kernel2.lean
+      kernelBacktrack.lean
+      kernelErrorFollowup.lean
+      kernelInterrupt.lean
+      kernel_maxheartbeats.lean
+      decideTacticKernel.lean
+      skipKernelTC.lean
+    )
+    ;;
+  *)
+    echo "unknown RIIR_PROFILE: $profile (expected fast or full)" >&2
+    exit 2
+    ;;
+esac
+
+lean4checker_modules="${LEAN4CHECKER_MODULES:-"$default_modules"}"
+
+lean4lean_compare="${LEAN4LEAN_COMPARE:-1}"
+if [[ "$lean4lean_compare" != "0" && "$lean4lean_compare" != "false" ]]; then
   lean4lean_args="$lean4lean_args --compare"
 fi
 
@@ -31,17 +62,6 @@ fi
 make -j -C "$root/build/release"
 
 export PATH="$stage1_bin:$PATH"
-
-kernel_tests=(
-  kernel1.lean
-  kernel2.lean
-  kernelBacktrack.lean
-  kernelErrorFollowup.lean
-  kernelInterrupt.lean
-  kernel_maxheartbeats.lean
-  decideTacticKernel.lean
-  skipKernelTC.lean
-)
 
 for t in "${kernel_tests[@]}"; do
   (cd "$root/tests/lean/run" && ./test_single.sh "$t")
