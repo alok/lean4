@@ -563,10 +563,29 @@ bool has_loose_bvar(expr const & e, unsigned i) {
     return found;
 }
 
-extern "C" LEAN_EXPORT uint8 lean_expr_has_loose_bvar(b_obj_arg e, b_obj_arg i) {
+#ifdef LEAN_RUST_KERNEL
+extern "C" uint8 lean_expr_has_loose_bvar_rs(b_obj_arg e, b_obj_arg i);
+#endif
+
+#if !defined(LEAN_RUST_KERNEL) || defined(LEAN_DEBUG)
+static inline uint8 lean_expr_has_loose_bvar_cpp(b_obj_arg e, b_obj_arg i) {
     if (!lean_is_scalar(i))
         return false;
     return has_loose_bvar(TO_REF(expr, e), lean_unbox(i));
+}
+#endif
+
+extern "C" LEAN_EXPORT uint8 lean_expr_has_loose_bvar(b_obj_arg e, b_obj_arg i) {
+#ifdef LEAN_RUST_KERNEL
+    uint8 r_rs = lean_expr_has_loose_bvar_rs(e, i);
+#ifdef LEAN_DEBUG
+    uint8 r = lean_expr_has_loose_bvar_cpp(e, i);
+    lean_assert(r_rs == r);
+#endif
+    return r_rs;
+#else
+    return lean_expr_has_loose_bvar_cpp(e, i);
+#endif
 }
 
 expr lower_loose_bvars(expr const & e, unsigned s, unsigned d) {

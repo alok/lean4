@@ -7,6 +7,7 @@ mod ptr;
 
 use libc::{c_char, c_uchar};
 use static_assertions::const_assert;
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::OnceLock;
 
@@ -56,11 +57,18 @@ const EXPR_HAS_LEVEL_PARAM_SHIFT: u32 = 43;
 const EXPR_BVAR_RANGE_SHIFT: u32 = 44;
 const EXPR_BVAR_RANGE_WIDTH: u32 = 20;
 const EXPR_DATA_BYTES: usize = std::mem::size_of::<u64>();
+const EXPR_BVAR_TAG: u8 = 0;
+const EXPR_FVAR_TAG: u8 = 1;
+const EXPR_MVAR_TAG: u8 = 2;
+const EXPR_SORT_TAG: u8 = 3;
 const EXPR_CONST_TAG: u8 = 4;
 const EXPR_APP_TAG: u8 = 5;
 const EXPR_LAM_TAG: u8 = 6;
 const EXPR_FORALL_TAG: u8 = 7;
 const EXPR_LET_TAG: u8 = 8;
+const EXPR_LIT_TAG: u8 = 9;
+const EXPR_MDATA_TAG: u8 = 10;
+const EXPR_PROJ_TAG: u8 = 11;
 
 const_assert!(LEVEL_HASH_SHIFT + LEVEL_HASH_WIDTH <= 64);
 const_assert!(LEVEL_DEPTH_SHIFT + LEVEL_DEPTH_WIDTH <= 64);
@@ -227,6 +235,15 @@ unsafe fn lean_dec(o: *mut LeanObject) {
 }
 
 #[inline(always)]
+unsafe fn is_likely_unshared(o: *mut LeanObject) -> bool {
+    if lean_ptr::is_scalar_ptr(o) {
+        return true;
+    }
+    let rc = layout::header(o).rc;
+    rc == 1 || rc == -1
+}
+
+#[inline(always)]
 unsafe fn expr_is_const_name(e: *mut LeanObject, name: *mut LeanObject) -> bool {
     if e.is_null() || lean_ptr::is_scalar_ptr(e) {
         return false;
@@ -237,6 +254,14 @@ unsafe fn expr_is_const_name(e: *mut LeanObject, name: *mut LeanObject) -> bool 
     let obj = LeanObj::new(e).unwrap();
     let name_ptr = *obj.ctor_obj_ptr();
     ffi::lean_name_eq(name_ptr, name) != 0
+}
+
+#[inline(always)]
+unsafe fn expr_loose_bvar_range(o: *mut LeanObject) -> u32 {
+    match data_for(o) {
+        None => 0,
+        Some(data) => ExprData(data).loose_bvar_range(),
+    }
 }
 
 #[inline(always)]
@@ -471,6 +496,104 @@ pub extern "C" fn lean_expr_consume_type_annotations_rs(mut e: *mut LeanObject) 
             return e;
         }
     }
+}
+
+#[no_mangle]
+pub extern "C" fn lean_expr_has_loose_bvar_rs(e: *mut LeanObject, i: *mut LeanObject) -> c_uchar {
+    if e.is_null() || !lean_ptr::is_scalar_ptr(i) {
+        return 0;
+    }
+    let i_val = lean_ptr::unbox_ptr(i);
+    if i_val > u32::MAX as usize {
+        return 0;
+    }
+    let target = i_val as u32;
+    unsafe {
+        if expr_loose_bvar_range(e) == 0 {
+            return 0;
+        }
+        let mut stack: Vec<(*mut LeanObject, u32)> = Vec::new();
+        let mut cache: HashSet<(usize, u32)> = HashSet::new();
+        stack.push((e, 0));
+        while let Some((node, offset)) = stack.pop() {
+            if node.is_null() || lean_ptr::is_scalar_ptr(node) {
+                continue;
+            }
+            let n_i = match target.checked_add(offset) {
+                Some(v) => v,
+                None => continue,
+            };
+            let tag = layout::header(node).tag;
+            if tag == EXPR_BVAR_TAG || tag == EXPR_CONST_TAG || tag == EXPR_SORT_TAG {
+                let range = expr_loose_bvar_range(node);
+                if n_i >= range {
+                    continue;
+                }
+                if tag == EXPR_BVAR_TAG {
+                    let obj = LeanObj::new(node).unwrap();
+                    let idx_obj = *obj.ctor_obj_ptr();
+                    if lean_ptr::is_scalar_ptr(idx_obj) {
+                        let idx = lean_ptr::unbox_ptr(idx_obj);
+                        if idx <= u32::MAX as usize && idx as u32 == n_i {
+                            return 1;
+                        }
+                    }
+                }
+                continue;
+            }
+            if !is_likely_unshared(node) {
+                let key = (node as usize, offset);
+                if !cache.insert(key) {
+                    continue;
+                }
+            }
+            let range = expr_loose_bvar_range(node);
+            if n_i >= range {
+                continue;
+            }
+            match tag {
+                EXPR_MDATA_TAG => {
+                    let obj = LeanObj::new(node).unwrap();
+                    let expr = *obj.ctor_obj_ptr().add(1);
+                    stack.push((expr, offset));
+                }
+                EXPR_PROJ_TAG => {
+                    let obj = LeanObj::new(node).unwrap();
+                    let expr = *obj.ctor_obj_ptr().add(2);
+                    stack.push((expr, offset));
+                }
+                EXPR_APP_TAG => {
+                    let obj = LeanObj::new(node).unwrap();
+                    let objs = obj.ctor_obj_ptr();
+                    let f = *objs;
+                    let a = *objs.add(1);
+                    stack.push((a, offset));
+                    stack.push((f, offset));
+                }
+                EXPR_LAM_TAG | EXPR_FORALL_TAG => {
+                    let obj = LeanObj::new(node).unwrap();
+                    let objs = obj.ctor_obj_ptr();
+                    let domain = *objs.add(1);
+                    let body = *objs.add(2);
+                    stack.push((body, offset + 1));
+                    stack.push((domain, offset));
+                }
+                EXPR_LET_TAG => {
+                    let obj = LeanObj::new(node).unwrap();
+                    let objs = obj.ctor_obj_ptr();
+                    let ty = *objs.add(1);
+                    let val = *objs.add(2);
+                    let body = *objs.add(3);
+                    stack.push((body, offset + 1));
+                    stack.push((val, offset));
+                    stack.push((ty, offset));
+                }
+                EXPR_FVAR_TAG | EXPR_MVAR_TAG | EXPR_LIT_TAG => {}
+                _ => {}
+            }
+        }
+    }
+    0
 }
 
 #[no_mangle]
