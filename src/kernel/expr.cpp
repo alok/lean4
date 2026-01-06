@@ -611,12 +611,32 @@ expr lower_loose_bvars(expr const & e, unsigned d) {
     return lower_loose_bvars(e, d, d);
 }
 
-extern "C" LEAN_EXPORT object * lean_expr_lower_loose_bvars(b_obj_arg e, b_obj_arg s, b_obj_arg d) {
+#ifdef LEAN_RUST_KERNEL
+extern "C" object * lean_expr_lower_loose_bvars_rs(b_obj_arg e, b_obj_arg s, b_obj_arg d);
+#endif
+
+#if !defined(LEAN_RUST_KERNEL) || defined(LEAN_DEBUG)
+static inline object * lean_expr_lower_loose_bvars_cpp(b_obj_arg e, b_obj_arg s, b_obj_arg d) {
     if (!lean_is_scalar(s) || !lean_is_scalar(d) || lean_unbox(s) < lean_unbox(d)) {
         lean_inc(e);
         return e;
     }
     return lower_loose_bvars(TO_REF(expr, e), lean_unbox(s), lean_unbox(d)).steal();
+}
+#endif
+
+extern "C" LEAN_EXPORT object * lean_expr_lower_loose_bvars(b_obj_arg e, b_obj_arg s, b_obj_arg d) {
+#ifdef LEAN_RUST_KERNEL
+    object * r_rs = lean_expr_lower_loose_bvars_rs(e, s, d);
+#ifdef LEAN_DEBUG
+    object * r = lean_expr_lower_loose_bvars_cpp(e, s, d);
+    lean_assert(r_rs == r);
+    lean_dec(r);
+#endif
+    return r_rs;
+#else
+    return lean_expr_lower_loose_bvars_cpp(e, s, d);
+#endif
 }
 
 expr lift_loose_bvars(expr const & e, unsigned s, unsigned d) {
@@ -640,12 +660,32 @@ expr lift_loose_bvars(expr const & e, unsigned d) {
     return lift_loose_bvars(e, 0, d);
 }
 
-extern "C" LEAN_EXPORT object * lean_expr_lift_loose_bvars(b_obj_arg e, b_obj_arg s, b_obj_arg d) {
+#ifdef LEAN_RUST_KERNEL
+extern "C" object * lean_expr_lift_loose_bvars_rs(b_obj_arg e, b_obj_arg s, b_obj_arg d);
+#endif
+
+#if !defined(LEAN_RUST_KERNEL) || defined(LEAN_DEBUG)
+static inline object * lean_expr_lift_loose_bvars_cpp(b_obj_arg e, b_obj_arg s, b_obj_arg d) {
     if (!lean_is_scalar(s) || !lean_is_scalar(d)) {
         lean_inc(e);
         return e;
     }
     return lift_loose_bvars(TO_REF(expr, e), lean_unbox(s), lean_unbox(d)).steal();
+}
+#endif
+
+extern "C" LEAN_EXPORT object * lean_expr_lift_loose_bvars(b_obj_arg e, b_obj_arg s, b_obj_arg d) {
+#ifdef LEAN_RUST_KERNEL
+    object * r_rs = lean_expr_lift_loose_bvars_rs(e, s, d);
+#ifdef LEAN_DEBUG
+    object * r = lean_expr_lift_loose_bvars_cpp(e, s, d);
+    lean_assert(r_rs == r);
+    lean_dec(r);
+#endif
+    return r_rs;
+#else
+    return lean_expr_lift_loose_bvars_cpp(e, s, d);
+#endif
 }
 
 // =======================================

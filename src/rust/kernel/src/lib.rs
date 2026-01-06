@@ -7,7 +7,7 @@ mod ptr;
 
 use libc::{c_char, c_uchar};
 use static_assertions::const_assert;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::OnceLock;
 
@@ -29,6 +29,36 @@ mod ffi {
         pub fn lean_mk_string(s: *const c_char) -> *mut LeanObject;
         pub fn lean_name_eq(n1: *mut LeanObject, n2: *mut LeanObject) -> c_uchar;
         pub fn l_Lean_Name_mkStr1(s: *mut LeanObject) -> *mut LeanObject;
+        pub fn lean_big_usize_to_nat(n: usize) -> *mut LeanObject;
+        pub fn lean_nat_big_add(a1: *mut LeanObject, a2: *mut LeanObject) -> *mut LeanObject;
+        pub fn lean_nat_big_sub(a1: *mut LeanObject, a2: *mut LeanObject) -> *mut LeanObject;
+        pub fn lean_expr_mk_bvar(idx: *mut LeanObject) -> *mut LeanObject;
+        pub fn lean_expr_mk_app(f: *mut LeanObject, a: *mut LeanObject) -> *mut LeanObject;
+        pub fn lean_expr_mk_lambda(
+            n: *mut LeanObject,
+            t: *mut LeanObject,
+            b: *mut LeanObject,
+            bi: c_uchar,
+        ) -> *mut LeanObject;
+        pub fn lean_expr_mk_forall(
+            n: *mut LeanObject,
+            t: *mut LeanObject,
+            b: *mut LeanObject,
+            bi: c_uchar,
+        ) -> *mut LeanObject;
+        pub fn lean_expr_mk_let(
+            n: *mut LeanObject,
+            t: *mut LeanObject,
+            v: *mut LeanObject,
+            b: *mut LeanObject,
+            nondep: c_uchar,
+        ) -> *mut LeanObject;
+        pub fn lean_expr_mk_mdata(m: *mut LeanObject, e: *mut LeanObject) -> *mut LeanObject;
+        pub fn lean_expr_mk_proj(
+            n: *mut LeanObject,
+            idx: *mut LeanObject,
+            e: *mut LeanObject,
+        ) -> *mut LeanObject;
     }
 }
 
@@ -57,6 +87,7 @@ const EXPR_HAS_LEVEL_PARAM_SHIFT: u32 = 43;
 const EXPR_BVAR_RANGE_SHIFT: u32 = 44;
 const EXPR_BVAR_RANGE_WIDTH: u32 = 20;
 const EXPR_DATA_BYTES: usize = std::mem::size_of::<u64>();
+const MAX_SMALL_NAT: usize = usize::MAX >> 1;
 const EXPR_BVAR_TAG: u8 = 0;
 const EXPR_FVAR_TAG: u8 = 1;
 const EXPR_MVAR_TAG: u8 = 2;
@@ -177,6 +208,43 @@ struct TypeAnnotationNames {
     semi_out_param: usize,
 }
 
+struct ExprCache {
+    map: HashMap<(usize, u32), *mut LeanObject>,
+}
+
+impl ExprCache {
+    fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+
+    unsafe fn get(&self, key: (usize, u32)) -> Option<*mut LeanObject> {
+        self.map.get(&key).copied()
+    }
+
+    unsafe fn insert(&mut self, key: (usize, u32), value: *mut LeanObject) {
+        use std::collections::hash_map::Entry;
+        match self.map.entry(key) {
+            Entry::Vacant(v) => {
+                lean_inc(value);
+                v.insert(value);
+            }
+            Entry::Occupied(_) => {}
+        }
+    }
+}
+
+impl Drop for ExprCache {
+    fn drop(&mut self) {
+        for &value in self.map.values() {
+            unsafe {
+                lean_dec(value);
+            }
+        }
+    }
+}
+
 const OPT_PARAM_NAME: &[u8] = b"optParam\0";
 const AUTO_PARAM_NAME: &[u8] = b"autoParam\0";
 const OUT_PARAM_NAME: &[u8] = b"outParam\0";
@@ -261,6 +329,42 @@ unsafe fn expr_loose_bvar_range(o: *mut LeanObject) -> u32 {
     match data_for(o) {
         None => 0,
         Some(data) => ExprData(data).loose_bvar_range(),
+    }
+}
+
+#[inline(always)]
+unsafe fn nat_box(n: usize) -> *mut LeanObject {
+    (lean_ptr::box_bits(n)) as *mut LeanObject
+}
+
+#[inline(always)]
+unsafe fn nat_add(a: *mut LeanObject, b: *mut LeanObject) -> *mut LeanObject {
+    if lean_ptr::is_scalar_ptr(a) && lean_ptr::is_scalar_ptr(b) {
+        let a_val = lean_ptr::unbox_ptr(a);
+        let b_val = lean_ptr::unbox_ptr(b);
+        let sum = a_val + b_val;
+        if sum <= MAX_SMALL_NAT {
+            nat_box(sum)
+        } else {
+            ffi::lean_big_usize_to_nat(sum)
+        }
+    } else {
+        ffi::lean_nat_big_add(a, b)
+    }
+}
+
+#[inline(always)]
+unsafe fn nat_sub(a: *mut LeanObject, b: *mut LeanObject) -> *mut LeanObject {
+    if lean_ptr::is_scalar_ptr(a) && lean_ptr::is_scalar_ptr(b) {
+        let a_val = lean_ptr::unbox_ptr(a);
+        let b_val = lean_ptr::unbox_ptr(b);
+        if a_val < b_val {
+            nat_box(0)
+        } else {
+            nat_box(a_val - b_val)
+        }
+    } else {
+        ffi::lean_nat_big_sub(a, b)
     }
 }
 
@@ -594,6 +698,389 @@ pub extern "C" fn lean_expr_has_loose_bvar_rs(e: *mut LeanObject, i: *mut LeanOb
         }
     }
     0
+}
+
+unsafe fn lower_loose_bvars_go(
+    e: *mut LeanObject,
+    s: u32,
+    d: u32,
+    offset: u32,
+    cache: &mut ExprCache,
+) -> *mut LeanObject {
+    if e.is_null() || lean_ptr::is_scalar_ptr(e) {
+        return e;
+    }
+    let key = (e as usize, offset);
+    if !is_likely_unshared(e) {
+        if let Some(cached) = cache.get(key) {
+            lean_inc(cached);
+            return cached;
+        }
+    }
+    let s1 = s.wrapping_add(offset);
+    if s1 < s {
+        lean_inc(e);
+        if !is_likely_unshared(e) {
+            cache.insert(key, e);
+        }
+        return e;
+    }
+    let range = expr_loose_bvar_range(e);
+    if s1 >= range {
+        lean_inc(e);
+        if !is_likely_unshared(e) {
+            cache.insert(key, e);
+        }
+        return e;
+    }
+    let tag = layout::header(e).tag;
+    let result = match tag {
+        EXPR_BVAR_TAG => {
+            let obj = LeanObj::new(e).unwrap();
+            let idx_obj = *obj.ctor_obj_ptr();
+            if lean_ptr::is_scalar_ptr(idx_obj) {
+                let idx_val = lean_ptr::unbox_ptr(idx_obj);
+                if idx_val >= s1 as usize {
+                    let new_idx = idx_val - d as usize;
+                    let new_idx_obj = nat_box(new_idx);
+                    ffi::lean_expr_mk_bvar(new_idx_obj)
+                } else {
+                    lean_inc(e);
+                    e
+                }
+            } else {
+                let d_obj = nat_box(d as usize);
+                let new_idx_obj = nat_sub(idx_obj, d_obj);
+                ffi::lean_expr_mk_bvar(new_idx_obj)
+            }
+        }
+        EXPR_APP_TAG => {
+            let obj = LeanObj::new(e).unwrap();
+            let objs = obj.ctor_obj_ptr();
+            let f = *objs;
+            let a = *objs.add(1);
+            let f_new = lower_loose_bvars_go(f, s, d, offset, cache);
+            let a_new = lower_loose_bvars_go(a, s, d, offset, cache);
+            if f_new == f && a_new == a {
+                lean_dec(f_new);
+                lean_dec(a_new);
+                lean_inc(e);
+                e
+            } else {
+                ffi::lean_expr_mk_app(f_new, a_new)
+            }
+        }
+        EXPR_LAM_TAG | EXPR_FORALL_TAG => {
+            let obj = LeanObj::new(e).unwrap();
+            let objs = obj.ctor_obj_ptr();
+            let name = *objs;
+            let domain = *objs.add(1);
+            let body = *objs.add(2);
+            let domain_new = lower_loose_bvars_go(domain, s, d, offset, cache);
+            let body_new = lower_loose_bvars_go(body, s, d, offset.wrapping_add(1), cache);
+            if domain_new == domain && body_new == body {
+                lean_dec(domain_new);
+                lean_dec(body_new);
+                lean_inc(e);
+                e
+            } else {
+                lean_inc(name);
+                let bi = obj.ctor_scalar_get_u8(EXPR_DATA_BYTES);
+                if tag == EXPR_LAM_TAG {
+                    ffi::lean_expr_mk_lambda(name, domain_new, body_new, bi)
+                } else {
+                    ffi::lean_expr_mk_forall(name, domain_new, body_new, bi)
+                }
+            }
+        }
+        EXPR_LET_TAG => {
+            let obj = LeanObj::new(e).unwrap();
+            let objs = obj.ctor_obj_ptr();
+            let name = *objs;
+            let ty = *objs.add(1);
+            let val = *objs.add(2);
+            let body = *objs.add(3);
+            let ty_new = lower_loose_bvars_go(ty, s, d, offset, cache);
+            let val_new = lower_loose_bvars_go(val, s, d, offset, cache);
+            let body_new = lower_loose_bvars_go(body, s, d, offset.wrapping_add(1), cache);
+            if ty_new == ty && val_new == val && body_new == body {
+                lean_dec(ty_new);
+                lean_dec(val_new);
+                lean_dec(body_new);
+                lean_inc(e);
+                e
+            } else {
+                lean_inc(name);
+                let nondep = obj.ctor_scalar_get_u8(EXPR_DATA_BYTES);
+                ffi::lean_expr_mk_let(name, ty_new, val_new, body_new, nondep)
+            }
+        }
+        EXPR_MDATA_TAG => {
+            let obj = LeanObj::new(e).unwrap();
+            let objs = obj.ctor_obj_ptr();
+            let mdata = *objs;
+            let expr = *objs.add(1);
+            let expr_new = lower_loose_bvars_go(expr, s, d, offset, cache);
+            if expr_new == expr {
+                lean_dec(expr_new);
+                lean_inc(e);
+                e
+            } else {
+                lean_inc(mdata);
+                ffi::lean_expr_mk_mdata(mdata, expr_new)
+            }
+        }
+        EXPR_PROJ_TAG => {
+            let obj = LeanObj::new(e).unwrap();
+            let objs = obj.ctor_obj_ptr();
+            let name = *objs;
+            let idx = *objs.add(1);
+            let expr = *objs.add(2);
+            let expr_new = lower_loose_bvars_go(expr, s, d, offset, cache);
+            if expr_new == expr {
+                lean_dec(expr_new);
+                lean_inc(e);
+                e
+            } else {
+                lean_inc(name);
+                lean_inc(idx);
+                ffi::lean_expr_mk_proj(name, idx, expr_new)
+            }
+        }
+        _ => {
+            lean_inc(e);
+            e
+        }
+    };
+    if !is_likely_unshared(e) {
+        cache.insert(key, result);
+    }
+    result
+}
+
+#[no_mangle]
+pub extern "C" fn lean_expr_lower_loose_bvars_rs(
+    e: *mut LeanObject,
+    s: *mut LeanObject,
+    d: *mut LeanObject,
+) -> *mut LeanObject {
+    if e.is_null() {
+        return e;
+    }
+    if !lean_ptr::is_scalar_ptr(s) || !lean_ptr::is_scalar_ptr(d) {
+        unsafe { lean_inc(e) };
+        return e;
+    }
+    let s_val = lean_ptr::unbox_ptr(s);
+    let d_val = lean_ptr::unbox_ptr(d);
+    if s_val < d_val {
+        unsafe { lean_inc(e) };
+        return e;
+    }
+    let s_u = s_val as u32;
+    let d_u = d_val as u32;
+    if d_u == 0 {
+        unsafe { lean_inc(e) };
+        return e;
+    }
+    unsafe {
+        if s_u >= expr_loose_bvar_range(e) {
+            lean_inc(e);
+            return e;
+        }
+        let mut cache = ExprCache::new();
+        lower_loose_bvars_go(e, s_u, d_u, 0, &mut cache)
+    }
+}
+
+unsafe fn lift_loose_bvars_go(
+    e: *mut LeanObject,
+    s: u32,
+    d: u32,
+    offset: u32,
+    cache: &mut ExprCache,
+) -> *mut LeanObject {
+    if e.is_null() || lean_ptr::is_scalar_ptr(e) {
+        return e;
+    }
+    let key = (e as usize, offset);
+    if !is_likely_unshared(e) {
+        if let Some(cached) = cache.get(key) {
+            lean_inc(cached);
+            return cached;
+        }
+    }
+    let s1 = s.wrapping_add(offset);
+    if s1 < s {
+        lean_inc(e);
+        if !is_likely_unshared(e) {
+            cache.insert(key, e);
+        }
+        return e;
+    }
+    let range = expr_loose_bvar_range(e);
+    if s1 >= range {
+        lean_inc(e);
+        if !is_likely_unshared(e) {
+            cache.insert(key, e);
+        }
+        return e;
+    }
+    let tag = layout::header(e).tag;
+    let result = match tag {
+        EXPR_BVAR_TAG => {
+            let obj = LeanObj::new(e).unwrap();
+            let idx_obj = *obj.ctor_obj_ptr();
+            if lean_ptr::is_scalar_ptr(idx_obj) {
+                let idx_val = lean_ptr::unbox_ptr(idx_obj);
+                if idx_val >= s1 as usize {
+                    let d_obj = nat_box(d as usize);
+                    let idx_obj_box = nat_box(idx_val);
+                    let new_idx_obj = nat_add(idx_obj_box, d_obj);
+                    ffi::lean_expr_mk_bvar(new_idx_obj)
+                } else {
+                    lean_inc(e);
+                    e
+                }
+            } else {
+                let d_obj = nat_box(d as usize);
+                let new_idx_obj = nat_add(idx_obj, d_obj);
+                ffi::lean_expr_mk_bvar(new_idx_obj)
+            }
+        }
+        EXPR_APP_TAG => {
+            let obj = LeanObj::new(e).unwrap();
+            let objs = obj.ctor_obj_ptr();
+            let f = *objs;
+            let a = *objs.add(1);
+            let f_new = lift_loose_bvars_go(f, s, d, offset, cache);
+            let a_new = lift_loose_bvars_go(a, s, d, offset, cache);
+            if f_new == f && a_new == a {
+                lean_dec(f_new);
+                lean_dec(a_new);
+                lean_inc(e);
+                e
+            } else {
+                ffi::lean_expr_mk_app(f_new, a_new)
+            }
+        }
+        EXPR_LAM_TAG | EXPR_FORALL_TAG => {
+            let obj = LeanObj::new(e).unwrap();
+            let objs = obj.ctor_obj_ptr();
+            let name = *objs;
+            let domain = *objs.add(1);
+            let body = *objs.add(2);
+            let domain_new = lift_loose_bvars_go(domain, s, d, offset, cache);
+            let body_new = lift_loose_bvars_go(body, s, d, offset.wrapping_add(1), cache);
+            if domain_new == domain && body_new == body {
+                lean_dec(domain_new);
+                lean_dec(body_new);
+                lean_inc(e);
+                e
+            } else {
+                lean_inc(name);
+                let bi = obj.ctor_scalar_get_u8(EXPR_DATA_BYTES);
+                if tag == EXPR_LAM_TAG {
+                    ffi::lean_expr_mk_lambda(name, domain_new, body_new, bi)
+                } else {
+                    ffi::lean_expr_mk_forall(name, domain_new, body_new, bi)
+                }
+            }
+        }
+        EXPR_LET_TAG => {
+            let obj = LeanObj::new(e).unwrap();
+            let objs = obj.ctor_obj_ptr();
+            let name = *objs;
+            let ty = *objs.add(1);
+            let val = *objs.add(2);
+            let body = *objs.add(3);
+            let ty_new = lift_loose_bvars_go(ty, s, d, offset, cache);
+            let val_new = lift_loose_bvars_go(val, s, d, offset, cache);
+            let body_new = lift_loose_bvars_go(body, s, d, offset.wrapping_add(1), cache);
+            if ty_new == ty && val_new == val && body_new == body {
+                lean_dec(ty_new);
+                lean_dec(val_new);
+                lean_dec(body_new);
+                lean_inc(e);
+                e
+            } else {
+                lean_inc(name);
+                let nondep = obj.ctor_scalar_get_u8(EXPR_DATA_BYTES);
+                ffi::lean_expr_mk_let(name, ty_new, val_new, body_new, nondep)
+            }
+        }
+        EXPR_MDATA_TAG => {
+            let obj = LeanObj::new(e).unwrap();
+            let objs = obj.ctor_obj_ptr();
+            let mdata = *objs;
+            let expr = *objs.add(1);
+            let expr_new = lift_loose_bvars_go(expr, s, d, offset, cache);
+            if expr_new == expr {
+                lean_dec(expr_new);
+                lean_inc(e);
+                e
+            } else {
+                lean_inc(mdata);
+                ffi::lean_expr_mk_mdata(mdata, expr_new)
+            }
+        }
+        EXPR_PROJ_TAG => {
+            let obj = LeanObj::new(e).unwrap();
+            let objs = obj.ctor_obj_ptr();
+            let name = *objs;
+            let idx = *objs.add(1);
+            let expr = *objs.add(2);
+            let expr_new = lift_loose_bvars_go(expr, s, d, offset, cache);
+            if expr_new == expr {
+                lean_dec(expr_new);
+                lean_inc(e);
+                e
+            } else {
+                lean_inc(name);
+                lean_inc(idx);
+                ffi::lean_expr_mk_proj(name, idx, expr_new)
+            }
+        }
+        _ => {
+            lean_inc(e);
+            e
+        }
+    };
+    if !is_likely_unshared(e) {
+        cache.insert(key, result);
+    }
+    result
+}
+
+#[no_mangle]
+pub extern "C" fn lean_expr_lift_loose_bvars_rs(
+    e: *mut LeanObject,
+    s: *mut LeanObject,
+    d: *mut LeanObject,
+) -> *mut LeanObject {
+    if e.is_null() {
+        return e;
+    }
+    if !lean_ptr::is_scalar_ptr(s) || !lean_ptr::is_scalar_ptr(d) {
+        unsafe { lean_inc(e) };
+        return e;
+    }
+    let s_val = lean_ptr::unbox_ptr(s);
+    let d_val = lean_ptr::unbox_ptr(d);
+    let s_u = s_val as u32;
+    let d_u = d_val as u32;
+    if d_u == 0 {
+        unsafe { lean_inc(e) };
+        return e;
+    }
+    unsafe {
+        if s_u >= expr_loose_bvar_range(e) {
+            lean_inc(e);
+            return e;
+        }
+        let mut cache = ExprCache::new();
+        lift_loose_bvars_go(e, s_u, d_u, 0, &mut cache)
+    }
 }
 
 #[no_mangle]
