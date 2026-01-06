@@ -59,6 +59,9 @@ mod ffi {
             idx: *mut LeanObject,
             e: *mut LeanObject,
         ) -> *mut LeanObject;
+        pub fn lean_apply_1(f: *mut LeanObject, a: *mut LeanObject) -> *mut LeanObject;
+        pub fn lean_alloc_ctor_export(tag: u32, num_objs: u32, scalar_sz: u32) -> *mut LeanObject;
+        pub fn lean_ctor_set_export(o: *mut LeanObject, idx: u32, v: *mut LeanObject);
     }
 }
 
@@ -1080,6 +1083,244 @@ pub extern "C" fn lean_expr_lift_loose_bvars_rs(
         }
         let mut cache = ExprCache::new();
         lift_loose_bvars_go(e, s_u, d_u, 0, &mut cache)
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn lean_find_expr_rs(p: *mut LeanObject, e: *mut LeanObject) -> *mut LeanObject {
+    unsafe {
+        if e.is_null() {
+            return nat_box(0);
+        }
+        let mut found: *mut LeanObject = std::ptr::null_mut();
+        let mut cache: HashSet<*mut LeanObject> = HashSet::new();
+        fn visit(
+            p: *mut LeanObject,
+            e: *mut LeanObject,
+            found: &mut *mut LeanObject,
+            cache: &mut HashSet<*mut LeanObject>,
+        ) {
+            unsafe {
+                if found.is_null() == false {
+                    return;
+                }
+                if e.is_null() || lean_ptr::is_scalar_ptr(e) {
+                    return;
+                }
+                let tag = layout::header(e).tag;
+                match tag {
+                    EXPR_CONST_TAG | EXPR_BVAR_TAG | EXPR_SORT_TAG => {
+                        lean_inc(p);
+                        lean_inc(e);
+                        let r = ffi::lean_apply_1(p, e);
+                        if lean_ptr::unbox_ptr(r) != 0 {
+                            *found = e;
+                        }
+                        return;
+                    }
+                    _ => {}
+                }
+                if !is_likely_unshared(e) {
+                    if cache.contains(&e) {
+                        return;
+                    }
+                    cache.insert(e);
+                }
+                lean_inc(p);
+                lean_inc(e);
+                let r = ffi::lean_apply_1(p, e);
+                if lean_ptr::unbox_ptr(r) != 0 {
+                    *found = e;
+                    return;
+                }
+                match tag {
+                    EXPR_LIT_TAG | EXPR_MVAR_TAG | EXPR_FVAR_TAG => {}
+                    EXPR_MDATA_TAG => {
+                        let obj = LeanObj::new(e).unwrap();
+                        let expr = *obj.ctor_obj_ptr().add(1);
+                        visit(p, expr, found, cache);
+                    }
+                    EXPR_PROJ_TAG => {
+                        let obj = LeanObj::new(e).unwrap();
+                        let expr = *obj.ctor_obj_ptr().add(2);
+                        visit(p, expr, found, cache);
+                    }
+                    EXPR_APP_TAG => {
+                        let obj = LeanObj::new(e).unwrap();
+                        let objs = obj.ctor_obj_ptr();
+                        let f = *objs;
+                        let a = *objs.add(1);
+                        visit(p, f, found, cache);
+                        visit(p, a, found, cache);
+                    }
+                    EXPR_LAM_TAG | EXPR_FORALL_TAG => {
+                        let obj = LeanObj::new(e).unwrap();
+                        let objs = obj.ctor_obj_ptr();
+                        let domain = *objs.add(1);
+                        let body = *objs.add(2);
+                        visit(p, domain, found, cache);
+                        visit(p, body, found, cache);
+                    }
+                    EXPR_LET_TAG => {
+                        let obj = LeanObj::new(e).unwrap();
+                        let objs = obj.ctor_obj_ptr();
+                        let ty = *objs.add(1);
+                        let val = *objs.add(2);
+                        let body = *objs.add(3);
+                        visit(p, ty, found, cache);
+                        visit(p, val, found, cache);
+                        visit(p, body, found, cache);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        visit(p, e, &mut found, &mut cache);
+        if found.is_null() {
+            nat_box(0)
+        } else {
+            lean_inc(found);
+            let r = ffi::lean_alloc_ctor_export(1, 1, 0);
+            ffi::lean_ctor_set_export(r, 0, found);
+            r
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn lean_find_ext_expr_rs(p: *mut LeanObject, e: *mut LeanObject) -> *mut LeanObject {
+    unsafe {
+        if e.is_null() {
+            return nat_box(0);
+        }
+        let mut found: *mut LeanObject = std::ptr::null_mut();
+        let mut cache: HashSet<*mut LeanObject> = HashSet::new();
+        fn visit_app_fn(
+            p: *mut LeanObject,
+            e: *mut LeanObject,
+            found: &mut *mut LeanObject,
+            cache: &mut HashSet<*mut LeanObject>,
+        ) {
+            unsafe {
+                if found.is_null() == false {
+                    return;
+                }
+                if e.is_null() || lean_ptr::is_scalar_ptr(e) {
+                    return;
+                }
+                if layout::header(e).tag == EXPR_APP_TAG {
+                    let obj = LeanObj::new(e).unwrap();
+                    let objs = obj.ctor_obj_ptr();
+                    let f = *objs;
+                    let a = *objs.add(1);
+                    visit_app_fn(p, f, found, cache);
+                    visit(p, a, found, cache);
+                } else {
+                    visit(p, e, found, cache);
+                }
+            }
+        }
+        fn visit(
+            p: *mut LeanObject,
+            e: *mut LeanObject,
+            found: &mut *mut LeanObject,
+            cache: &mut HashSet<*mut LeanObject>,
+        ) {
+            unsafe {
+                if found.is_null() == false {
+                    return;
+                }
+                if e.is_null() || lean_ptr::is_scalar_ptr(e) {
+                    return;
+                }
+                let tag = layout::header(e).tag;
+                match tag {
+                    EXPR_CONST_TAG | EXPR_BVAR_TAG | EXPR_SORT_TAG => {
+                        lean_inc(p);
+                        lean_inc(e);
+                        let r = ffi::lean_apply_1(p, e);
+                        match lean_ptr::unbox_ptr(r) {
+                            0 => {
+                                *found = e;
+                                return;
+                            }
+                            1 => {}
+                            2 => return,
+                            _ => return,
+                        }
+                        return;
+                    }
+                    _ => {}
+                }
+                if !is_likely_unshared(e) {
+                    if cache.contains(&e) {
+                        return;
+                    }
+                    cache.insert(e);
+                }
+                lean_inc(p);
+                lean_inc(e);
+                let r = ffi::lean_apply_1(p, e);
+                match lean_ptr::unbox_ptr(r) {
+                    0 => {
+                        *found = e;
+                        return;
+                    }
+                    1 => {}
+                    2 => return,
+                    _ => return,
+                }
+                match tag {
+                    EXPR_LIT_TAG | EXPR_MVAR_TAG | EXPR_FVAR_TAG => {}
+                    EXPR_MDATA_TAG => {
+                        let obj = LeanObj::new(e).unwrap();
+                        let expr = *obj.ctor_obj_ptr().add(1);
+                        visit(p, expr, found, cache);
+                    }
+                    EXPR_PROJ_TAG => {
+                        let obj = LeanObj::new(e).unwrap();
+                        let expr = *obj.ctor_obj_ptr().add(2);
+                        visit(p, expr, found, cache);
+                    }
+                    EXPR_APP_TAG => {
+                        let obj = LeanObj::new(e).unwrap();
+                        let objs = obj.ctor_obj_ptr();
+                        let f = *objs;
+                        let a = *objs.add(1);
+                        visit_app_fn(p, f, found, cache);
+                        visit(p, a, found, cache);
+                    }
+                    EXPR_LAM_TAG | EXPR_FORALL_TAG => {
+                        let obj = LeanObj::new(e).unwrap();
+                        let objs = obj.ctor_obj_ptr();
+                        let domain = *objs.add(1);
+                        let body = *objs.add(2);
+                        visit(p, domain, found, cache);
+                        visit(p, body, found, cache);
+                    }
+                    EXPR_LET_TAG => {
+                        let obj = LeanObj::new(e).unwrap();
+                        let objs = obj.ctor_obj_ptr();
+                        let ty = *objs.add(1);
+                        let val = *objs.add(2);
+                        let body = *objs.add(3);
+                        visit(p, ty, found, cache);
+                        visit(p, val, found, cache);
+                        visit(p, body, found, cache);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        visit(p, e, &mut found, &mut cache);
+        if found.is_null() {
+            nat_box(0)
+        } else {
+            lean_inc(found);
+            let r = ffi::lean_alloc_ctor_export(1, 1, 0);
+            ffi::lean_ctor_set_export(r, 0, found);
+            r
+        }
     }
 }
 

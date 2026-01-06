@@ -502,3 +502,11 @@ uint64_t get_num_heartbeats() {
 }
 
 }
+
+extern "C" LEAN_EXPORT lean_object * lean_alloc_ctor_export(unsigned tag, unsigned num_objs, unsigned scalar_sz) {
+    return lean_alloc_ctor(tag, num_objs, scalar_sz);
+}
+
+extern "C" LEAN_EXPORT void lean_ctor_set_export(lean_object * o, unsigned i, lean_object * v) {
+    lean_ctor_set(o, i, v);
+}

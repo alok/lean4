@@ -161,7 +161,12 @@ void for_each(expr const & e, std::function<bool(expr const &, unsigned)> && f) 
     return for_each_offset_fn(f)(e);
 }
 
-extern "C" LEAN_EXPORT obj_res lean_find_expr(b_obj_arg p, b_obj_arg e_) {
+#ifdef LEAN_RUST_KERNEL
+extern "C" obj_res lean_find_expr_rs(b_obj_arg p, b_obj_arg e_);
+#endif
+
+#if !defined(LEAN_RUST_KERNEL) || defined(LEAN_DEBUG)
+static inline obj_res lean_find_expr_cpp(b_obj_arg p, b_obj_arg e_) {
     lean_object * found = nullptr;
     expr const & e = TO_REF(expr, e_);
     for_each_fn<true>([&](expr const & e) {
@@ -183,6 +188,21 @@ extern "C" LEAN_EXPORT obj_res lean_find_expr(b_obj_arg p, b_obj_arg e_) {
         return lean_box(0);
     }
 }
+#endif
+
+extern "C" LEAN_EXPORT obj_res lean_find_expr(b_obj_arg p, b_obj_arg e_) {
+#ifdef LEAN_RUST_KERNEL
+    obj_res r_rs = lean_find_expr_rs(p, e_);
+#ifdef LEAN_DEBUG
+    obj_res r = lean_find_expr_cpp(p, e_);
+    lean_assert(r_rs == r);
+    lean_dec(r);
+#endif
+    return r_rs;
+#else
+    return lean_find_expr_cpp(p, e_);
+#endif
+}
 
 /*
 Similar to `lean_find_expr`, but `p` returns
@@ -193,7 +213,12 @@ inductive FindStep where
   /-- Do not search subterms -/ | done
 ```
 */
-extern "C" LEAN_EXPORT obj_res lean_find_ext_expr(b_obj_arg p, b_obj_arg e_) {
+#ifdef LEAN_RUST_KERNEL
+extern "C" obj_res lean_find_ext_expr_rs(b_obj_arg p, b_obj_arg e_);
+#endif
+
+#if !defined(LEAN_RUST_KERNEL) || defined(LEAN_DEBUG)
+static inline obj_res lean_find_ext_expr_cpp(b_obj_arg p, b_obj_arg e_) {
     lean_object * found = nullptr;
     expr const & e = TO_REF(expr, e_);
     // Recall that `findExt?` skips partial applications.
@@ -221,5 +246,20 @@ extern "C" LEAN_EXPORT obj_res lean_find_ext_expr(b_obj_arg p, b_obj_arg e_) {
     } else {
         return lean_box(0);
     }
+}
+#endif
+
+extern "C" LEAN_EXPORT obj_res lean_find_ext_expr(b_obj_arg p, b_obj_arg e_) {
+#ifdef LEAN_RUST_KERNEL
+    obj_res r_rs = lean_find_ext_expr_rs(p, e_);
+#ifdef LEAN_DEBUG
+    obj_res r = lean_find_ext_expr_cpp(p, e_);
+    lean_assert(r_rs == r);
+    lean_dec(r);
+#endif
+    return r_rs;
+#else
+    return lean_find_ext_expr_cpp(p, e_);
+#endif
 }
 }
