@@ -195,6 +195,19 @@ impl<'a> LeanObj<'a> {
     }
 
     #[inline(always)]
+    pub unsafe fn ctor_get_u8(self, offset: usize) -> u8 {
+        let base = self.ctor_obj_ptr() as *const u8;
+        let ptr = base.add(offset) as *const u8;
+        std_ptr::read(ptr)
+    }
+
+    #[inline(always)]
+    pub unsafe fn ctor_scalar_get_u8(self, offset: usize) -> u8 {
+        let base = self.ctor_num_objs() * std::mem::size_of::<*mut LeanObject>();
+        self.ctor_get_u8(base + offset)
+    }
+
+    #[inline(always)]
     pub fn array_size(self) -> usize {
         unsafe { layout::array_obj(self.ptr).size }
     }

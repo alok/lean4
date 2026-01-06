@@ -7,6 +7,8 @@ mod ptr;
 
 use libc::{c_char, c_uchar};
 use static_assertions::const_assert;
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::OnceLock;
 
 #[repr(C)]
 pub struct LeanObject {
@@ -15,11 +17,17 @@ pub struct LeanObject {
 
 #[allow(dead_code)]
 mod ffi {
-    use libc::c_char;
+    use libc::{c_char, c_uchar};
+    use super::LeanObject;
 
     extern "C" {
         pub fn lean_uint64_mix_hash(a1: u64, a2: u64) -> u64;
         pub fn lean_internal_panic(msg: *const c_char) -> !;
+        pub fn lean_dec_ref_cold(o: *mut LeanObject);
+        pub fn lean_mark_persistent(o: *mut LeanObject);
+        pub fn lean_mk_string(s: *const c_char) -> *mut LeanObject;
+        pub fn lean_name_eq(n1: *mut LeanObject, n2: *mut LeanObject) -> c_uchar;
+        pub fn l_Lean_Name_mkStr1(s: *mut LeanObject) -> *mut LeanObject;
     }
 }
 
@@ -48,6 +56,8 @@ const EXPR_HAS_LEVEL_PARAM_SHIFT: u32 = 43;
 const EXPR_BVAR_RANGE_SHIFT: u32 = 44;
 const EXPR_BVAR_RANGE_WIDTH: u32 = 20;
 const EXPR_DATA_BYTES: usize = std::mem::size_of::<u64>();
+const EXPR_CONST_TAG: u8 = 4;
+const EXPR_APP_TAG: u8 = 5;
 const EXPR_LAM_TAG: u8 = 6;
 const EXPR_FORALL_TAG: u8 = 7;
 const EXPR_LET_TAG: u8 = 8;
@@ -149,6 +159,133 @@ impl ExprData {
         v = bf::set::<EXPR_BVAR_RANGE_SHIFT, EXPR_BVAR_RANGE_WIDTH>(v, range as u64);
         v | (flags & EXPR_FLAGS_MASK)
     }
+}
+
+#[derive(Copy, Clone)]
+struct TypeAnnotationNames {
+    opt_param: usize,
+    auto_param: usize,
+    out_param: usize,
+    semi_out_param: usize,
+}
+
+const OPT_PARAM_NAME: &[u8] = b"optParam\0";
+const AUTO_PARAM_NAME: &[u8] = b"autoParam\0";
+const OUT_PARAM_NAME: &[u8] = b"outParam\0";
+const SEMI_OUT_PARAM_NAME: &[u8] = b"semiOutParam\0";
+
+fn type_annotation_names() -> TypeAnnotationNames {
+    static NAMES: OnceLock<TypeAnnotationNames> = OnceLock::new();
+    *NAMES.get_or_init(|| unsafe {
+        TypeAnnotationNames {
+            opt_param: mk_name(OPT_PARAM_NAME) as usize,
+            auto_param: mk_name(AUTO_PARAM_NAME) as usize,
+            out_param: mk_name(OUT_PARAM_NAME) as usize,
+            semi_out_param: mk_name(SEMI_OUT_PARAM_NAME) as usize,
+        }
+    })
+}
+
+unsafe fn mk_name(bytes: &[u8]) -> *mut LeanObject {
+    let s = ffi::lean_mk_string(bytes.as_ptr() as *const c_char);
+    let name = ffi::l_Lean_Name_mkStr1(s);
+    ffi::lean_mark_persistent(name);
+    name
+}
+
+#[inline(always)]
+unsafe fn lean_inc_ref_n(o: *mut LeanObject, n: i32) {
+    let header = o as *mut layout::LeanObjectHeader;
+    let rc = (*header).rc;
+    if rc > 0 {
+        (*header).rc = rc + n;
+    } else if rc != 0 {
+        let atomic = &*(std::ptr::addr_of!((*header).rc) as *const AtomicI32);
+        atomic.fetch_sub(n, Ordering::Relaxed);
+    }
+}
+
+#[inline(always)]
+unsafe fn lean_inc(o: *mut LeanObject) {
+    if !lean_ptr::is_scalar_ptr(o) {
+        lean_inc_ref_n(o, 1);
+    }
+}
+
+#[inline(always)]
+unsafe fn lean_dec(o: *mut LeanObject) {
+    if lean_ptr::is_scalar_ptr(o) {
+        return;
+    }
+    let header = o as *mut layout::LeanObjectHeader;
+    let rc = (*header).rc;
+    if rc > 1 {
+        (*header).rc = rc - 1;
+    } else if rc != 0 {
+        ffi::lean_dec_ref_cold(o);
+    }
+}
+
+#[inline(always)]
+unsafe fn expr_is_const_name(e: *mut LeanObject, name: *mut LeanObject) -> bool {
+    if e.is_null() || lean_ptr::is_scalar_ptr(e) {
+        return false;
+    }
+    if layout::header(e).tag != EXPR_CONST_TAG {
+        return false;
+    }
+    let obj = LeanObj::new(e).unwrap();
+    let name_ptr = *obj.ctor_obj_ptr();
+    ffi::lean_name_eq(name_ptr, name) != 0
+}
+
+#[inline(always)]
+unsafe fn match_app1_const_arg(
+    e: *mut LeanObject,
+    name: *mut LeanObject,
+) -> Option<*mut LeanObject> {
+    if e.is_null() || lean_ptr::is_scalar_ptr(e) {
+        return None;
+    }
+    if layout::header(e).tag != EXPR_APP_TAG {
+        return None;
+    }
+    let e_obj = LeanObj::new(e).unwrap();
+    let objs = e_obj.ctor_obj_ptr();
+    let f = *objs;
+    if !expr_is_const_name(f, name) {
+        return None;
+    }
+    Some(*objs.add(1))
+}
+
+#[inline(always)]
+unsafe fn match_app2_const_arg1(
+    e: *mut LeanObject,
+    name: *mut LeanObject,
+) -> Option<*mut LeanObject> {
+    if e.is_null() || lean_ptr::is_scalar_ptr(e) {
+        return None;
+    }
+    if layout::header(e).tag != EXPR_APP_TAG {
+        return None;
+    }
+    let e_obj = LeanObj::new(e).unwrap();
+    let objs = e_obj.ctor_obj_ptr();
+    let f = *objs;
+    if f.is_null() || lean_ptr::is_scalar_ptr(f) {
+        return None;
+    }
+    if layout::header(f).tag != EXPR_APP_TAG {
+        return None;
+    }
+    let f_obj = LeanObj::new(f).unwrap();
+    let f_objs = f_obj.ctor_obj_ptr();
+    let g = *f_objs;
+    if !expr_is_const_name(g, name) {
+        return None;
+    }
+    Some(*f_objs.add(1))
 }
 
 fn data_for(o: *mut LeanObject) -> Option<u64> {
@@ -272,12 +409,8 @@ pub extern "C" fn lean_expr_binder_info_rs(o: *mut LeanObject) -> c_uchar {
         if header.tag != EXPR_LAM_TAG && header.tag != EXPR_FORALL_TAG {
             return 0;
         }
-        let ctor = layout::ctor_obj(o);
-        let num_objs = ctor.header.other as usize;
-        let base = ctor.objs.as_ptr() as *const u8;
-        let scalar_base = base.add(num_objs * std::mem::size_of::<*mut LeanObject>());
-        let bi_ptr = scalar_base.add(EXPR_DATA_BYTES) as *const u8;
-        std::ptr::read(bi_ptr) as c_uchar
+        let obj = LeanObj::new(o).unwrap();
+        obj.ctor_scalar_get_u8(EXPR_DATA_BYTES) as c_uchar
     }
 }
 
@@ -294,12 +427,49 @@ pub extern "C" fn lean_expr_is_have_rs(o: *mut LeanObject) -> c_uchar {
         if header.tag != EXPR_LET_TAG {
             return 0;
         }
-        let ctor = layout::ctor_obj(o);
-        let num_objs = ctor.header.other as usize;
-        let base = ctor.objs.as_ptr() as *const u8;
-        let scalar_base = base.add(num_objs * std::mem::size_of::<*mut LeanObject>());
-        let nondep_ptr = scalar_base.add(EXPR_DATA_BYTES) as *const u8;
-        std::ptr::read(nondep_ptr) as c_uchar
+        let obj = LeanObj::new(o).unwrap();
+        obj.ctor_scalar_get_u8(EXPR_DATA_BYTES) as c_uchar
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn lean_expr_consume_type_annotations_rs(mut e: *mut LeanObject) -> *mut LeanObject {
+    if e.is_null() {
+        return e;
+    }
+    let names = type_annotation_names();
+    let opt_param = names.opt_param as *mut LeanObject;
+    let auto_param = names.auto_param as *mut LeanObject;
+    let out_param = names.out_param as *mut LeanObject;
+    let semi_out_param = names.semi_out_param as *mut LeanObject;
+    loop {
+        unsafe {
+            if let Some(arg) = match_app2_const_arg1(e, opt_param) {
+                lean_inc(arg);
+                lean_dec(e);
+                e = arg;
+                continue;
+            }
+            if let Some(arg) = match_app2_const_arg1(e, auto_param) {
+                lean_inc(arg);
+                lean_dec(e);
+                e = arg;
+                continue;
+            }
+            if let Some(arg) = match_app1_const_arg(e, out_param) {
+                lean_inc(arg);
+                lean_dec(e);
+                e = arg;
+                continue;
+            }
+            if let Some(arg) = match_app1_const_arg(e, semi_out_param) {
+                lean_inc(arg);
+                lean_dec(e);
+                e = arg;
+                continue;
+            }
+            return e;
+        }
     }
 }
 

@@ -501,8 +501,23 @@ expr update_let(expr const & e, expr const & new_type, expr const & new_value, e
 }
 
 extern "C" object * lean_expr_consume_type_annotations(obj_arg e);
+#ifdef LEAN_RUST_KERNEL
+extern "C" object * lean_expr_consume_type_annotations_rs(obj_arg e);
+#endif
 
-expr consume_type_annotations(expr const & e) { return expr(lean_expr_consume_type_annotations(e.to_obj_arg())); }
+expr consume_type_annotations(expr const & e) {
+#ifdef LEAN_RUST_KERNEL
+    object * r_rs = lean_expr_consume_type_annotations_rs(e.to_obj_arg());
+#ifdef LEAN_DEBUG
+    object * r = lean_expr_consume_type_annotations(e.to_obj_arg());
+    lean_assert(r_rs == r);
+    lean_dec(r);
+#endif
+    return expr(r_rs);
+#else
+    return expr(lean_expr_consume_type_annotations(e.to_obj_arg()));
+#endif
+}
 
 // =======================================
 // Loose bound variable management
