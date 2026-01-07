@@ -36,6 +36,12 @@ expr abstract(expr const & e, name const & n) {
     return abstract(e, 1, &fvar);
 }
 
+#ifdef LEAN_RUST_KERNEL
+extern "C" object * lean_expr_abstract_rs(object * e, object * subst);
+extern "C" object * lean_expr_abstract_range_rs(object * e, object * n, object * subst);
+#endif
+
+// Always compile C++ version for debugging
 static object * lean_expr_abstract_core(object * e0, size_t n, object * subst) {
     lean_assert(n <= lean_array_size(subst));
     expr const & e = reinterpret_cast<expr const &>(e0);
@@ -65,14 +71,30 @@ static object * lean_expr_abstract_core(object * e0, size_t n, object * subst) {
     return r.steal();
 }
 
-extern "C" LEAN_EXPORT object * lean_expr_abstract_range(object * e, object * n, object * subst) {
+static inline object * lean_expr_abstract_range_cpp(object * e, object * n, object * subst) {
     if (!lean_is_scalar(n))
         return lean_expr_abstract_core(e, lean_array_size(subst), subst);
     else
         return lean_expr_abstract_core(e, std::min(lean_unbox(n), lean_array_size(subst)), subst);
 }
 
-extern "C" LEAN_EXPORT object * lean_expr_abstract(object * e, object * subst) {
+static inline object * lean_expr_abstract_cpp(object * e, object * subst) {
     return lean_expr_abstract_core(e, lean_array_size(subst), subst);
+}
+
+extern "C" LEAN_EXPORT object * lean_expr_abstract_range(object * e, object * n, object * subst) {
+#ifdef LEAN_RUST_KERNEL
+    return lean_expr_abstract_range_rs(e, n, subst);
+#else
+    return lean_expr_abstract_range_cpp(e, n, subst);
+#endif
+}
+
+extern "C" LEAN_EXPORT object * lean_expr_abstract(object * e, object * subst) {
+#ifdef LEAN_RUST_KERNEL
+    return lean_expr_abstract_rs(e, subst);
+#else
+    return lean_expr_abstract_cpp(e, subst);
+#endif
 }
 }

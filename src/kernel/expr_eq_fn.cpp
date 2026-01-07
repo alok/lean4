@@ -137,18 +137,59 @@ public:
     bool operator()(expr const & a, expr const & b) { return apply(a, b, 0, true); }
 };
 
+#ifdef LEAN_RUST_KERNEL
+extern "C" uint8 lean_expr_eqv_rs(b_obj_arg a, b_obj_arg b);
+extern "C" uint8 lean_expr_equal_rs(b_obj_arg a, b_obj_arg b);
+#endif
+
 bool is_equal(expr const & a, expr const & b) {
+#ifdef LEAN_RUST_KERNEL
+    bool r_rs = lean_expr_eqv_rs(a.raw(), b.raw()) != 0;
+#ifdef LEAN_DEBUG
+    bool r = expr_eq_fn<false>()(a, b);
+    lean_assert(r_rs == r);
+#endif
+    return r_rs;
+#else
     return expr_eq_fn<false>()(a, b);
+#endif
 }
 bool is_bi_equal(expr const & a, expr const & b) {
+#ifdef LEAN_RUST_KERNEL
+    bool r_rs = lean_expr_equal_rs(a.raw(), b.raw()) != 0;
+#ifdef LEAN_DEBUG
+    bool r = expr_eq_fn<true>()(a, b);
+    lean_assert(r_rs == r);
+#endif
+    return r_rs;
+#else
     return expr_eq_fn<true>()(a, b);
+#endif
 }
 
 extern "C" LEAN_EXPORT uint8 lean_expr_eqv(b_obj_arg a, b_obj_arg b) {
+#ifdef LEAN_RUST_KERNEL
+    uint8 r_rs = lean_expr_eqv_rs(a, b);
+#ifdef LEAN_DEBUG
+    uint8 r = expr_eq_fn<false>()(TO_REF(expr, a), TO_REF(expr, b));
+    lean_assert(r_rs == r);
+#endif
+    return r_rs;
+#else
     return expr_eq_fn<false>()(TO_REF(expr, a), TO_REF(expr, b));
+#endif
 }
 
 extern "C" LEAN_EXPORT uint8 lean_expr_equal(b_obj_arg a, b_obj_arg b) {
+#ifdef LEAN_RUST_KERNEL
+    uint8 r_rs = lean_expr_equal_rs(a, b);
+#ifdef LEAN_DEBUG
+    uint8 r = expr_eq_fn<true>()(TO_REF(expr, a), TO_REF(expr, b));
+    lean_assert(r_rs == r);
+#endif
+    return r_rs;
+#else
     return expr_eq_fn<true>()(TO_REF(expr, a), TO_REF(expr, b));
+#endif
 }
 }

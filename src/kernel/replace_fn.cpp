@@ -148,8 +148,28 @@ public:
     expr operator()(expr const & e) { return apply(e); }
 };
 
-extern "C" LEAN_EXPORT obj_res lean_replace_expr(b_obj_arg f, b_obj_arg e) {
+#ifdef LEAN_RUST_KERNEL
+extern "C" obj_res lean_replace_expr_rs(b_obj_arg f, b_obj_arg e);
+#endif
+
+#if !defined(LEAN_RUST_KERNEL) || defined(LEAN_DEBUG)
+static inline obj_res lean_replace_expr_cpp(b_obj_arg f, b_obj_arg e) {
     expr r = replace_fn(f)(TO_REF(expr, e));
     return r.steal();
+}
+#endif
+
+extern "C" LEAN_EXPORT obj_res lean_replace_expr(b_obj_arg f, b_obj_arg e) {
+#ifdef LEAN_RUST_KERNEL
+    obj_res r_rs = lean_replace_expr_rs(f, e);
+#ifdef LEAN_DEBUG
+    obj_res r = lean_replace_expr_cpp(f, e);
+    lean_assert(is_equal(TO_REF(expr, r_rs), TO_REF(expr, r)));
+    lean_dec(r);
+#endif
+    return r_rs;
+#else
+    return lean_replace_expr_cpp(f, e);
+#endif
 }
 }

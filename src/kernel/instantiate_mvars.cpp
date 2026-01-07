@@ -18,6 +18,12 @@ This module is not used by the kernel. It just provides an efficient implementat
 */
 
 namespace lean {
+
+#ifdef LEAN_RUST_KERNEL
+extern "C" object * lean_instantiate_level_mvars_rs(object * mctx, object * l);
+extern "C" object * lean_instantiate_expr_mvars_rs(object * mctx, object * e);
+#endif
+
 extern "C" object * lean_get_lmvar_assignment(obj_arg mctx, obj_arg mid);
 extern "C" object * lean_assign_lmvar(obj_arg mctx, obj_arg mid, obj_arg val);
 
@@ -89,13 +95,21 @@ public:
     level operator()(level const & l) { return visit(l); }
 };
 
-extern "C" LEAN_EXPORT object * lean_instantiate_level_mvars(object * m, object * l) {
+static inline object * lean_instantiate_level_mvars_cpp(object * m, object * l) {
     metavar_ctx mctx(m);
     level l_new = instantiate_lmvars_fn(mctx)(level(l));
     object * r = alloc_cnstr(0, 2, 0);
     cnstr_set(r, 0, mctx.steal());
     cnstr_set(r, 1, l_new.steal());
     return r;
+}
+
+extern "C" LEAN_EXPORT object * lean_instantiate_level_mvars(object * m, object * l) {
+#ifdef LEAN_RUST_KERNEL
+    return lean_instantiate_level_mvars_rs(m, l);
+#else
+    return lean_instantiate_level_mvars_cpp(m, l);
+#endif
 }
 
 extern "C" object * lean_get_mvar_assignment(obj_arg mctx, obj_arg mid);
@@ -362,12 +376,20 @@ public:
     expr operator()(expr const & e) { return visit(e); }
 };
 
-extern "C" LEAN_EXPORT object * lean_instantiate_expr_mvars(object * m, object * e) {
+static inline object * lean_instantiate_expr_mvars_cpp(object * m, object * e) {
     metavar_ctx mctx(m);
     expr e_new = instantiate_mvars_fn(mctx)(expr(e));
     object * r = alloc_cnstr(0, 2, 0);
     cnstr_set(r, 0, mctx.steal());
     cnstr_set(r, 1, e_new.steal());
     return r;
+}
+
+extern "C" LEAN_EXPORT object * lean_instantiate_expr_mvars(object * m, object * e) {
+#ifdef LEAN_RUST_KERNEL
+    return lean_instantiate_expr_mvars_rs(m, e);
+#else
+    return lean_instantiate_expr_mvars_cpp(m, e);
+#endif
 }
 }

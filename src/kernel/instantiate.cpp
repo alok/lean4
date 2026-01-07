@@ -12,6 +12,15 @@ Author: Leonardo de Moura
 #include "kernel/instantiate.h"
 
 namespace lean {
+
+#ifdef LEAN_RUST_KERNEL
+extern "C" object * lean_expr_instantiate1_rs(b_obj_arg a, b_obj_arg e);
+extern "C" object * lean_expr_instantiate_rs(b_obj_arg a, b_obj_arg subst);
+extern "C" object * lean_expr_instantiate_range_rs(b_obj_arg a, b_obj_arg begin, b_obj_arg end, b_obj_arg subst);
+extern "C" object * lean_expr_instantiate_rev_rs(b_obj_arg a, b_obj_arg subst);
+extern "C" object * lean_expr_instantiate_rev_range_rs(b_obj_arg a, b_obj_arg begin, b_obj_arg end, b_obj_arg subst);
+#endif
+
 expr instantiate(expr const & a, unsigned s, unsigned n, expr const * subst) {
     if (s >= get_loose_bvar_range(a) || n == 0)
         return a;
@@ -41,7 +50,7 @@ expr instantiate(expr const & e, std::initializer_list<expr> const & l) {  retur
 expr instantiate(expr const & e, unsigned i, expr const & s) { return instantiate(e, i, 1, &s); }
 expr instantiate(expr const & e, expr const & s) { return instantiate(e, 0, s); }
 
-extern "C" LEAN_EXPORT object * lean_expr_instantiate1(object * a0, object * e0) {
+static inline object * lean_expr_instantiate1_cpp(object * a0, object * e0) {
     expr const & a = reinterpret_cast<expr const &>(a0);
     if (!has_loose_bvars(a)) {
         lean_inc(a0);
@@ -50,6 +59,20 @@ extern "C" LEAN_EXPORT object * lean_expr_instantiate1(object * a0, object * e0)
     expr const & e = reinterpret_cast<expr const &>(e0);
     expr r = instantiate(a, 1, &e);
     return r.steal();
+}
+
+extern "C" LEAN_EXPORT object * lean_expr_instantiate1(object * a0, object * e0) {
+#ifdef LEAN_RUST_KERNEL
+    object * r_rs = lean_expr_instantiate1_rs(a0, e0);
+#ifdef LEAN_DEBUG
+    object * r = lean_expr_instantiate1_cpp(a0, e0);
+    lean_assert(is_equal(TO_REF(expr, r_rs), TO_REF(expr, r)));
+    lean_dec(r);
+#endif
+    return r_rs;
+#else
+    return lean_expr_instantiate1_cpp(a0, e0);
+#endif
 }
 
 static object * lean_expr_instantiate_core(b_obj_arg a0, size_t n, object** subst) {
@@ -78,11 +101,25 @@ static object * lean_expr_instantiate_core(b_obj_arg a0, size_t n, object** subs
     return r.steal();
 }
 
-extern "C" LEAN_EXPORT object * lean_expr_instantiate(b_obj_arg a, b_obj_arg subst) {
+static inline object * lean_expr_instantiate_cpp(b_obj_arg a, b_obj_arg subst) {
     return lean_expr_instantiate_core(a, lean_array_size(subst), lean_array_cptr(subst));
 }
 
-extern "C" LEAN_EXPORT object * lean_expr_instantiate_range(b_obj_arg a, b_obj_arg begin, b_obj_arg end, b_obj_arg subst) {
+extern "C" LEAN_EXPORT object * lean_expr_instantiate(b_obj_arg a, b_obj_arg subst) {
+#ifdef LEAN_RUST_KERNEL
+    object * r_rs = lean_expr_instantiate_rs(a, subst);
+#ifdef LEAN_DEBUG
+    object * r = lean_expr_instantiate_cpp(a, subst);
+    lean_assert(is_equal(TO_REF(expr, r_rs), TO_REF(expr, r)));
+    lean_dec(r);
+#endif
+    return r_rs;
+#else
+    return lean_expr_instantiate_cpp(a, subst);
+#endif
+}
+
+static inline object * lean_expr_instantiate_range_cpp(b_obj_arg a, b_obj_arg begin, b_obj_arg end, b_obj_arg subst) {
     if (!lean_is_scalar(begin) || !lean_is_scalar(end)) {
         lean_internal_panic("invalid range for Expr.instantiateRange");
     } else {
@@ -94,6 +131,20 @@ extern "C" LEAN_EXPORT object * lean_expr_instantiate_range(b_obj_arg a, b_obj_a
         }
         return lean_expr_instantiate_core(a, e - b, lean_array_cptr(subst) + b);
     }
+}
+
+extern "C" LEAN_EXPORT object * lean_expr_instantiate_range(b_obj_arg a, b_obj_arg begin, b_obj_arg end, b_obj_arg subst) {
+#ifdef LEAN_RUST_KERNEL
+    object * r_rs = lean_expr_instantiate_range_rs(a, begin, end, subst);
+#ifdef LEAN_DEBUG
+    object * r = lean_expr_instantiate_range_cpp(a, begin, end, subst);
+    lean_assert(is_equal(TO_REF(expr, r_rs), TO_REF(expr, r)));
+    lean_dec(r);
+#endif
+    return r_rs;
+#else
+    return lean_expr_instantiate_range_cpp(a, begin, end, subst);
+#endif
 }
 
 expr instantiate_rev(expr const & a, unsigned n, expr const * subst) {
@@ -143,11 +194,25 @@ static object * lean_expr_instantiate_rev_core(object * a0, size_t n, object ** 
     return r.steal();
 }
 
-extern "C" LEAN_EXPORT object * lean_expr_instantiate_rev(b_obj_arg a, b_obj_arg subst) {
+static inline object * lean_expr_instantiate_rev_cpp(b_obj_arg a, b_obj_arg subst) {
     return lean_expr_instantiate_rev_core(a, lean_array_size(subst), lean_array_cptr(subst));
 }
 
-extern "C" LEAN_EXPORT object * lean_expr_instantiate_rev_range(b_obj_arg a, b_obj_arg begin, b_obj_arg end, b_obj_arg subst) {
+extern "C" LEAN_EXPORT object * lean_expr_instantiate_rev(b_obj_arg a, b_obj_arg subst) {
+#ifdef LEAN_RUST_KERNEL
+    object * r_rs = lean_expr_instantiate_rev_rs(a, subst);
+#ifdef LEAN_DEBUG
+    object * r = lean_expr_instantiate_rev_cpp(a, subst);
+    lean_assert(is_equal(TO_REF(expr, r_rs), TO_REF(expr, r)));
+    lean_dec(r);
+#endif
+    return r_rs;
+#else
+    return lean_expr_instantiate_rev_cpp(a, subst);
+#endif
+}
+
+static inline object * lean_expr_instantiate_rev_range_cpp(b_obj_arg a, b_obj_arg begin, b_obj_arg end, b_obj_arg subst) {
     if (!lean_is_scalar(begin) || !lean_is_scalar(end)) {
         lean_internal_panic("invalid range for Expr.instantiateRevRange");
     } else {
@@ -159,6 +224,20 @@ extern "C" LEAN_EXPORT object * lean_expr_instantiate_rev_range(b_obj_arg a, b_o
         }
         return lean_expr_instantiate_rev_core(a, e - b, lean_array_cptr(subst) + b);
     }
+}
+
+extern "C" LEAN_EXPORT object * lean_expr_instantiate_rev_range(b_obj_arg a, b_obj_arg begin, b_obj_arg end, b_obj_arg subst) {
+#ifdef LEAN_RUST_KERNEL
+    object * r_rs = lean_expr_instantiate_rev_range_rs(a, begin, end, subst);
+#ifdef LEAN_DEBUG
+    object * r = lean_expr_instantiate_rev_range_cpp(a, begin, end, subst);
+    lean_assert(is_equal(TO_REF(expr, r_rs), TO_REF(expr, r)));
+    lean_dec(r);
+#endif
+    return r_rs;
+#else
+    return lean_expr_instantiate_rev_range_cpp(a, begin, end, subst);
+#endif
 }
 
 bool is_head_beta(expr const & t) {
