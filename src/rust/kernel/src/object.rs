@@ -132,7 +132,7 @@ impl<'a> LeanStringView<'a> {
 #[repr(transparent)]
 #[derive(Copy, Clone)]
 pub struct LeanObj<'a> {
-    ptr: *mut LeanObject,
+    pub ptr: *mut LeanObject,
     _marker: PhantomData<&'a LeanObject>,
 }
 
