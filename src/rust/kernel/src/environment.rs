@@ -20,7 +20,10 @@ mod ffi {
 
 impl<'a> Environment<'a> {
     pub unsafe fn find(&self, n: *mut LeanObject) -> Option<ConstantInfo<'a>> {
-        let r = ffi::lean_environment_find(self.obj.ptr, n);
+        let env = self.obj.ptr;
+        crate::lean_inc(env);
+        crate::lean_inc(n);
+        let r = ffi::lean_environment_find(env, n);
         if ptr::is_scalar_ptr(r) {
             None
         } else {
@@ -31,6 +34,8 @@ impl<'a> Environment<'a> {
     }
 
     pub unsafe fn is_quot_initialized(&self) -> bool {
-        ffi::lean_environment_quot_init(self.obj.ptr) != 0
+        let env = self.obj.ptr;
+        crate::lean_inc(env);
+        ffi::lean_environment_quot_init(env) != 0
     }
 }

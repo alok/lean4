@@ -63,7 +63,10 @@ mod ffi {
 
 impl<'a> LocalCtx<'a> {
     pub unsafe fn find(&self, n: *mut LeanObject) -> Option<LocalDecl<'a>> {
-        let r = ffi::lean_local_ctx_find(self.obj.ptr, n);
+        let lctx = self.obj.ptr;
+        crate::lean_inc(lctx);
+        crate::lean_inc(n);
+        let r = ffi::lean_local_ctx_find(lctx, n);
         if ptr::is_scalar_ptr(r) {
             None
         } else {
