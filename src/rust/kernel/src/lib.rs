@@ -257,6 +257,7 @@ impl Drop for ExprCache {
     }
 }
 
+
 const OPT_PARAM_NAME: &[u8] = b"optParam\0";
 const AUTO_PARAM_NAME: &[u8] = b"autoParam\0";
 const OUT_PARAM_NAME: &[u8] = b"outParam\0";
@@ -2541,16 +2542,18 @@ impl InstantiateLevelMVars {
         }
     }
 
-    /// Check if level has metavariables using the level data
-    #[inline]
+    /// Check if level has metavariables using the cached level data.
+    #[inline(never)]
     unsafe fn level_has_mvar(l: *mut LeanObject) -> bool {
-        match LeanObj::new(l) {
-            Some(obj) => {
-                let data = LevelData(obj.ctor_data_u64());
-                data.has_mvar() != 0
-            }
-            None => false,
+        if l.is_null() || lean_ptr::is_scalar_ptr(l) {
+            return false;
         }
+        let obj = match LeanObj::new(l) {
+            Some(o) => o,
+            None => return false,
+        };
+        let data = LevelData(obj.ctor_data_u64());
+        data.has_mvar() != 0
     }
 
     /// Cache a result if shared
@@ -2564,6 +2567,15 @@ impl InstantiateLevelMVars {
 
     /// Visit a level and instantiate metavariables
     unsafe fn visit(&mut self, mctx: &mut *mut LeanObject, l: *mut LeanObject) -> *mut LeanObject {
+        if l.is_null() || lean_ptr::is_scalar_ptr(l) {
+            lean_inc(l);
+            return l;
+        }
+        self.visit_nonscalar(mctx, l)
+    }
+
+    #[inline(never)]
+    unsafe fn visit_nonscalar(&mut self, mctx: &mut *mut LeanObject, l: *mut LeanObject) -> *mut LeanObject {
         if !Self::level_has_mvar(l) {
             lean_inc(l);
             return l;
