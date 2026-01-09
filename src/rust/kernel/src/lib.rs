@@ -1999,8 +1999,6 @@ mod array_ffi {
     extern "C" {
         #[link_name = "lean_array_size_ffi"]
         pub fn lean_array_size(a: *mut LeanObject) -> c_ulong;
-        #[link_name = "lean_array_get_core_ffi"]
-        pub fn lean_array_get_core(a: *mut LeanObject, i: c_ulong) -> *mut LeanObject;
         #[link_name = "lean_array_cptr_ffi"]
         pub fn lean_array_cptr(a: *mut LeanObject) -> *mut *mut LeanObject;
     }
@@ -3137,6 +3135,7 @@ impl InstantiateExprMVars {
             lean_inc(e);
             return e;
         }
+        let fvars_ptr = array_ffi::lean_array_cptr(fvars);
 
         // Use replace function - create a callback that replaces fvars
         // For now, use a simpler approach: iterate and substitute one at a time
@@ -3144,7 +3143,7 @@ impl InstantiateExprMVars {
         lean_inc(result);
 
         for i in 0..sz {
-            let fvar = array_ffi::lean_array_get_core(fvars, i as libc::c_ulong);
+            let fvar = *fvars_ptr.add(i);
             let subst_val = rev_args[sz - i - 1];
 
             // Create simple substitution
