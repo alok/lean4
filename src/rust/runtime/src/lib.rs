@@ -179,6 +179,88 @@ pub extern "C" fn lean_system_platform_emscripten_rs() -> c_uchar {
     cfg!(target_os = "emscripten") as c_uchar
 }
 
+#[cfg(target_os = "macos")]
+#[no_mangle]
+pub extern "C" fn get_peak_rss_rs() -> usize {
+    unsafe {
+        let mut usage: libc::rusage = std::mem::zeroed();
+        if libc::getrusage(libc::RUSAGE_SELF, &mut usage) != 0 {
+            return 0;
+        }
+        usage.ru_maxrss as usize
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[no_mangle]
+pub extern "C" fn get_current_rss_rs() -> usize {
+    unsafe {
+        let mut info: libc::mach_task_basic_info = std::mem::zeroed();
+        let mut count: libc::mach_msg_type_number_t = libc::MACH_TASK_BASIC_INFO_COUNT;
+        let result = libc::task_info(
+            libc::mach_task_self(),
+            libc::MACH_TASK_BASIC_INFO,
+            &mut info as *mut _ as libc::task_info_t,
+            &mut count,
+        );
+        if result != libc::KERN_SUCCESS {
+            return 0;
+        }
+        info.resident_size as usize
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+#[no_mangle]
+pub extern "C" fn get_peak_rss_rs() -> usize {
+    unsafe {
+        let mut usage: libc::rusage = std::mem::zeroed();
+        if libc::getrusage(libc::RUSAGE_SELF, &mut usage) != 0 {
+            return 0;
+        }
+        (usage.ru_maxrss as usize).saturating_mul(1024)
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+#[no_mangle]
+pub extern "C" fn get_current_rss_rs() -> usize {
+    let statm = std::fs::read_to_string("/proc/self/statm").ok();
+    let statm = match statm {
+        Some(s) => s,
+        None => return 0,
+    };
+    let mut iter = statm.split_whitespace();
+    let _total = iter.next();
+    let rss = match iter.next().and_then(|s| s.parse::<usize>().ok()) {
+        Some(v) => v,
+        None => return 0,
+    };
+    let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    if page_size <= 0 {
+        return 0;
+    }
+    rss.saturating_mul(page_size as usize)
+}
+
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "linux", target_os = "android"))
+))]
+#[no_mangle]
+pub extern "C" fn get_peak_rss_rs() -> usize {
+    0
+}
+
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "linux", target_os = "android"))
+))]
+#[no_mangle]
+pub extern "C" fn get_current_rss_rs() -> usize {
+    0
+}
+
 // Placeholder symbol to prove the Rust runtime staticlib is wired in.
 #[no_mangle]
 pub extern "C" fn lean_runtime_rs_ping() -> c_uchar {

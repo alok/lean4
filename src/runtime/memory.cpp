@@ -15,7 +15,15 @@ Author: Leonardo de Moura
 #define LEAN_CHECK_MEM_THRESHOLD 200
 #endif
 
-#if defined(HAS_JEMALLOC)
+#if defined(LEAN_RUST_RUNTIME) && !defined(HAS_JEMALLOC) && !defined(LEAN_WINDOWS)
+namespace lean {
+extern "C" size_t get_peak_rss_rs();
+extern "C" size_t get_current_rss_rs();
+
+size_t get_peak_rss() { return get_peak_rss_rs(); }
+size_t get_current_rss() { return get_current_rss_rs(); }
+}
+#elif defined(HAS_JEMALLOC)
 #include <jemalloc/jemalloc.h>
 
 namespace lean {
