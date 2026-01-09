@@ -2028,17 +2028,17 @@ unsafe fn expr_has_mvar(e: *mut LeanObject) -> bool {
 struct ExprAbstract {
     /// Cache for shared subexpressions: (original_ptr, offset) -> result_ptr
     cache: FixedCache<ABSTRACT_CACHE_CAPACITY>,
-    /// Array of fvar/mvar expressions to abstract
-    subst: *mut LeanObject,
+    /// Raw pointer to substitution array elements
+    subst_ptr: *mut *mut LeanObject,
     /// Number of elements in subst to use
     n: usize,
 }
 
 impl ExprAbstract {
-    fn new(subst: *mut LeanObject, n: usize) -> Self {
+    unsafe fn new(subst: *mut LeanObject, n: usize) -> Self {
         Self {
             cache: FixedCache::new(),
-            subst,
+            subst_ptr: array_ffi::lean_array_cptr(subst),
             n,
         }
     }
@@ -2077,7 +2077,7 @@ impl ExprAbstract {
                 let mut i = self.n;
                 while i > 0 {
                     i -= 1;
-                    let v = array_ffi::lean_array_get_core(self.subst, i as libc::c_ulong);
+                    let v = *self.subst_ptr.add(i);
                     if !lean_ptr::is_scalar_ptr(v) {
                         let v_obj = LeanObj::new(v).unwrap();
                         let v_tag = layout::header(v).tag;
