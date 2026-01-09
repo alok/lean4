@@ -10,7 +10,15 @@ Author: Leonardo de Moura
 
 namespace lean {
 
+#ifdef LEAN_RUST_RUNTIME
+extern "C" uint8 lean_sharecommon_eq_rs(b_obj_arg o1, b_obj_arg o2);
+extern "C" uint64_t lean_sharecommon_hash_rs(b_obj_arg o);
+#endif
+
 extern "C" LEAN_EXPORT uint8 lean_sharecommon_eq(b_obj_arg o1, b_obj_arg o2) {
+#ifdef LEAN_RUST_RUNTIME
+    return lean_sharecommon_eq_rs(o1, o2);
+#else
     lean_assert(!lean_is_scalar(o1));
     lean_assert(!lean_is_scalar(o2));
     size_t sz1 = lean_object_data_byte_size(o1);
@@ -28,9 +36,13 @@ extern "C" LEAN_EXPORT uint8 lean_sharecommon_eq(b_obj_arg o1, b_obj_arg o2) {
         // compare objects' bodies
         return memcmp(reinterpret_cast<char*>(o1) + header_sz, reinterpret_cast<char*>(o2) + header_sz, sz1 - header_sz) == 0;
     }
+#endif
 }
 
 extern "C" LEAN_EXPORT uint64_t lean_sharecommon_hash(b_obj_arg o) {
+#ifdef LEAN_RUST_RUNTIME
+    return lean_sharecommon_hash_rs(o);
+#else
     lean_assert(!lean_is_scalar(o));
     size_t sz = lean_object_data_byte_size(o);
     size_t header_sz = sizeof(lean_object);
@@ -43,6 +55,7 @@ extern "C" LEAN_EXPORT uint64_t lean_sharecommon_hash(b_obj_arg o) {
         // hash body
         return hash_str(sz - header_sz, reinterpret_cast<unsigned char const *>(o) + header_sz, init);
     }
+#endif
 }
 
 static obj_res mk_pair(obj_arg a, obj_arg b) {

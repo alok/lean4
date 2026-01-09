@@ -16,6 +16,14 @@ mod ffi {
         pub fn lean_ctor_get_ffi(o: *mut LeanObject, idx: u32) -> *mut LeanObject;
         pub fn lean_unbox_ffi(o: *mut LeanObject) -> size_t;
         pub fn lean_sarray_cptr_ffi(a: *mut LeanObject) -> *mut c_uchar;
+        pub fn lean_ptr_tag_ffi(o: *mut LeanObject) -> c_uchar;
+        pub fn lean_ptr_other_ffi(o: *mut LeanObject) -> u32;
+        pub fn lean_is_scalar_ffi(o: *mut LeanObject) -> c_uchar;
+        pub fn lean_object_header_size_ffi() -> size_t;
+        pub fn lean_mpz_tag_ffi() -> c_uchar;
+        pub fn lean_mpz_eq_ffi(a: *mut LeanObject, b: *mut LeanObject) -> c_uchar;
+        pub fn lean_mpz_hash_ffi(a: *mut LeanObject) -> u64;
+        pub fn lean_object_data_byte_size(o: *mut LeanObject) -> size_t;
     }
 }
 
@@ -135,6 +143,18 @@ pub extern "C" fn lean_utf8_n_strlen_rs(str_ptr: *const u8, sz: usize) -> usize 
 }
 
 #[inline(always)]
+fn hash_u64(mut h: u64, mut k: u64) -> u64 {
+    const M: u64 = 0xc6a4a7935bd1e995;
+    const R: u32 = 47;
+    k = k.wrapping_mul(M);
+    k ^= k >> R;
+    k ^= M;
+    h ^= k;
+    h = h.wrapping_mul(M);
+    h
+}
+
+#[inline(always)]
 fn utf8_size(c: u8) -> u32 {
     if (c & 0x80) == 0 {
         1
@@ -177,6 +197,65 @@ pub extern "C" fn lean_system_platform_osx_rs() -> c_uchar {
 #[no_mangle]
 pub extern "C" fn lean_system_platform_emscripten_rs() -> c_uchar {
     cfg!(target_os = "emscripten") as c_uchar
+}
+
+#[no_mangle]
+pub extern "C" fn lean_sharecommon_eq_rs(o1: *mut LeanObject, o2: *mut LeanObject) -> c_uchar {
+    unsafe {
+        if o1 == o2 {
+            return 1;
+        }
+        let sz1 = ffi::lean_object_data_byte_size(o1) as usize;
+        let sz2 = ffi::lean_object_data_byte_size(o2) as usize;
+        if sz1 != sz2 {
+            return 0;
+        }
+        let tag1 = ffi::lean_ptr_tag_ffi(o1);
+        if tag1 != ffi::lean_ptr_tag_ffi(o2) {
+            return 0;
+        }
+        if ffi::lean_ptr_other_ffi(o1) != ffi::lean_ptr_other_ffi(o2) {
+            return 0;
+        }
+        let mpz_tag = ffi::lean_mpz_tag_ffi();
+        if tag1 == mpz_tag {
+            return ffi::lean_mpz_eq_ffi(o1, o2);
+        }
+        let header_sz = ffi::lean_object_header_size_ffi() as usize;
+        if sz1 < header_sz {
+            return 0;
+        }
+        let body_len = sz1 - header_sz;
+        let p1 = (o1 as *const u8).add(header_sz);
+        let p2 = (o2 as *const u8).add(header_sz);
+        let cmp = memcmp(
+            p1 as *const c_void,
+            p2 as *const c_void,
+            body_len as usize,
+        );
+        (cmp == 0) as c_uchar
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn lean_sharecommon_hash_rs(o: *mut LeanObject) -> u64 {
+    unsafe {
+        let sz = ffi::lean_object_data_byte_size(o) as usize;
+        let header_sz = ffi::lean_object_header_size_ffi() as usize;
+        let tag = ffi::lean_ptr_tag_ffi(o) as u64;
+        let mpz_tag = ffi::lean_mpz_tag_ffi() as u64;
+        if tag == mpz_tag {
+            return hash_u64(tag, ffi::lean_mpz_hash_ffi(o));
+        }
+        let other = ffi::lean_ptr_other_ffi(o) as u64;
+        let init = hash_u64(tag, other);
+        if sz < header_sz {
+            return init;
+        }
+        let body_len = sz - header_sz;
+        let p = (o as *const u8).add(header_sz);
+        hash_str_rs(body_len, p, init)
+    }
 }
 
 #[cfg(not(windows))]
