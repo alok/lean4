@@ -54,6 +54,58 @@ pub extern "C" fn lean_byteslice_beq_rs(a: *mut LeanObject, b: *mut LeanObject) 
     }
 }
 
+#[no_mangle]
+pub extern "C" fn hash_str_rs(len: usize, str_ptr: *const u8, init_value: u64) -> u64 {
+    const M: u64 = 0xc6a4a7935bd1e995;
+    const R: u32 = 47;
+
+    unsafe {
+        let mut h = init_value ^ (len as u64).wrapping_mul(M);
+        let nblocks = len / 8;
+        for i in 0..nblocks {
+            let k_ptr = str_ptr.add(i * 8) as *const u64;
+            let mut k = std::ptr::read_unaligned(k_ptr);
+
+            k = k.wrapping_mul(M);
+            k ^= k >> R;
+            k = k.wrapping_mul(M);
+
+            h ^= k;
+            h = h.wrapping_mul(M);
+        }
+
+        let data2 = str_ptr.add(nblocks * 8);
+        let rem = len & 7;
+        if rem >= 7 {
+            h ^= (data2.add(6).read() as u64) << 48;
+        }
+        if rem >= 6 {
+            h ^= (data2.add(5).read() as u64) << 40;
+        }
+        if rem >= 5 {
+            h ^= (data2.add(4).read() as u64) << 32;
+        }
+        if rem >= 4 {
+            h ^= (data2.add(3).read() as u64) << 24;
+        }
+        if rem >= 3 {
+            h ^= (data2.add(2).read() as u64) << 16;
+        }
+        if rem >= 2 {
+            h ^= (data2.add(1).read() as u64) << 8;
+        }
+        if rem >= 1 {
+            h ^= data2.read() as u64;
+            h = h.wrapping_mul(M);
+        }
+
+        h ^= h >> R;
+        h = h.wrapping_mul(M);
+        h ^= h >> R;
+        h
+    }
+}
+
 // Placeholder symbol to prove the Rust runtime staticlib is wired in.
 #[no_mangle]
 pub extern "C" fn lean_runtime_rs_ping() -> c_uchar {

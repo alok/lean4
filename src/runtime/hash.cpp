@@ -11,6 +11,11 @@ namespace lean {
 //-----------------------------------------------------------------------------
 // MurmurHash2, 64-bit versions, by Austin Appleby
 // https://sites.google.com/site/murmurhash/
+#ifdef LEAN_RUST_RUNTIME
+extern "C" uint64 hash_str_rs(size_t len, unsigned char const * str, uint64 init_value);
+#endif
+
+#if !defined(LEAN_RUST_RUNTIME)
 static uint64 MurmurHash64A(void const * key, size_t len, uint64 seed) {
     const uint64 m = 0xc6a4a7935bd1e995;
     const int r = 47;
@@ -50,9 +55,14 @@ static uint64 MurmurHash64A(void const * key, size_t len, uint64 seed) {
 
     return h;
 }
+#endif
 
 uint64 hash_str(size_t len, unsigned char const * str, uint64 init_value) {
+#ifdef LEAN_RUST_RUNTIME
+    return hash_str_rs(len, str, init_value);
+#else
     return MurmurHash64A(str, len, init_value);
+#endif
 }
 
 }
