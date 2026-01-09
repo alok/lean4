@@ -1,5 +1,31 @@
 use crate::LeanObject;
 
+#[repr(transparent)]
+#[derive(Copy, Clone)]
+pub struct LeanPtr(pub usize);
+
+impl LeanPtr {
+    #[inline(always)]
+    pub fn from_raw(ptr: *mut LeanObject) -> Self {
+        Self(ptr as usize)
+    }
+
+    #[inline(always)]
+    pub fn to_raw(self) -> *mut LeanObject {
+        self.0 as *mut LeanObject
+    }
+
+    #[inline(always)]
+    pub fn is_null(self) -> bool {
+        self.0 == 0
+    }
+
+    #[inline(always)]
+    pub fn is_scalar(self) -> bool {
+        is_scalar_bits(self.0)
+    }
+}
+
 #[inline(always)]
 pub const fn is_scalar_bits(bits: usize) -> bool {
     (bits & 1) != 0

@@ -77,6 +77,7 @@ mod ffi {
 use bitfield as bf;
 use object::LeanObj;
 use ptr as lean_ptr;
+use ptr::LeanPtr;
 
 const TOO_MANY_BVARS: &[u8] = b"too many bound variables\0";
 const LEVEL_DEPTH_TOO_BIG: &[u8] = b"universe level depth is too big\0";
@@ -2544,11 +2545,12 @@ impl InstantiateLevelMVars {
 
     /// Check if level has metavariables using the cached level data.
     #[inline(never)]
-    unsafe fn level_has_mvar(l: *mut LeanObject) -> bool {
-        if l.is_null() || lean_ptr::is_scalar_ptr(l) {
+    unsafe fn level_has_mvar(l: LeanPtr) -> bool {
+        if l.is_null() || l.is_scalar() {
             return false;
         }
-        let obj = match LeanObj::new(l) {
+        let ptr = l.to_raw();
+        let obj = match LeanObj::new(ptr) {
             Some(o) => o,
             None => return false,
         };
@@ -2566,46 +2568,48 @@ impl InstantiateLevelMVars {
     }
 
     /// Visit a level and instantiate metavariables
-    unsafe fn visit(&mut self, mctx: &mut *mut LeanObject, l: *mut LeanObject) -> *mut LeanObject {
-        if l.is_null() || lean_ptr::is_scalar_ptr(l) {
-            lean_inc(l);
-            return l;
+    unsafe fn visit(&mut self, mctx: &mut *mut LeanObject, l: LeanPtr) -> *mut LeanObject {
+        if l.is_null() || l.is_scalar() {
+            let ptr = l.to_raw();
+            lean_inc(ptr);
+            return ptr;
         }
         self.visit_nonscalar(mctx, l)
     }
 
     #[inline(never)]
-    unsafe fn visit_nonscalar(&mut self, mctx: &mut *mut LeanObject, l: *mut LeanObject) -> *mut LeanObject {
+    unsafe fn visit_nonscalar(&mut self, mctx: &mut *mut LeanObject, l: LeanPtr) -> *mut LeanObject {
+        let ptr = l.to_raw();
         if !Self::level_has_mvar(l) {
-            lean_inc(l);
-            return l;
+            lean_inc(ptr);
+            return ptr;
         }
 
-        let shared = is_shared(l);
+        let shared = is_shared(ptr);
         if shared {
-            if let Some(&cached) = self.cache.get(&l) {
+            if let Some(&cached) = self.cache.get(&ptr) {
                 lean_inc(cached);
                 return cached;
             }
         }
 
-        let obj = match LeanObj::new(l) {
+        let obj = match LeanObj::new(ptr) {
             Some(o) => o,
             None => {
-                lean_inc(l);
-                return l;
+                lean_inc(ptr);
+                return ptr;
             }
         };
 
-        let tag = layout::header(l).tag;
+        let tag = layout::header(ptr).tag;
         let result = match tag {
             LEVEL_SUCC_TAG => {
                 let inner = *obj.ctor_obj_ptr();
-                let new_inner = self.visit(mctx, inner);
+                let new_inner = self.visit(mctx, LeanPtr::from_raw(inner));
                 if new_inner == inner {
                     lean_dec(new_inner);
-                    lean_inc(l);
-                    l
+                    lean_inc(ptr);
+                    ptr
                 } else {
                     level_ffi::lean_level_mk_succ(new_inner)
                 }
@@ -2614,13 +2618,13 @@ impl InstantiateLevelMVars {
             LEVEL_MAX_TAG | LEVEL_IMAX_TAG => {
                 let lhs = *obj.ctor_obj_ptr();
                 let rhs = *obj.ctor_obj_ptr().add(1);
-                let new_lhs = self.visit(mctx, lhs);
-                let new_rhs = self.visit(mctx, rhs);
+                let new_lhs = self.visit(mctx, LeanPtr::from_raw(lhs));
+                let new_rhs = self.visit(mctx, LeanPtr::from_raw(rhs));
                 if new_lhs == lhs && new_rhs == rhs {
                     lean_dec(new_lhs);
                     lean_dec(new_rhs);
-                    lean_inc(l);
-                    l
+                    lean_inc(ptr);
+                    ptr
                 } else if tag == LEVEL_MAX_TAG {
                     level_ffi::lean_level_mk_max(new_lhs, new_rhs)
                 } else {
@@ -2636,8 +2640,8 @@ impl InstantiateLevelMVars {
 
                 if lean_ptr::is_scalar_ptr(r) {
                     // None - not assigned
-                    lean_inc(l);
-                    l
+                    lean_inc(ptr);
+                    ptr
                 } else {
                     // Some(val) - extract from Option.some ctor
                     let r_obj = LeanObj::new(r).unwrap();
@@ -2645,10 +2649,10 @@ impl InstantiateLevelMVars {
                     lean_inc(a);
                     lean_dec(r);
 
-                    if !Self::level_has_mvar(a) {
+                    if !Self::level_has_mvar(LeanPtr::from_raw(a)) {
                         a
                     } else {
-                        let a_new = self.visit(mctx, a);
+                        let a_new = self.visit(mctx, LeanPtr::from_raw(a));
                         if a != a_new {
                             // Save 'a' to prevent garbage collection
                             lean_inc(a);
@@ -2668,12 +2672,12 @@ impl InstantiateLevelMVars {
 
             // Zero and Param don't have mvars
             _ => {
-                lean_inc(l);
-                l
+                lean_inc(ptr);
+                ptr
             }
         };
 
-        self.cache_result(l, result, shared);
+        self.cache_result(ptr, result, shared);
         result
     }
 }
@@ -2698,7 +2702,7 @@ pub extern "C" fn lean_instantiate_level_mvars_rs(
     unsafe {
         let mut mctx_mut = mctx;
         let mut inst = InstantiateLevelMVars::new();
-        let l_new = inst.visit(&mut mctx_mut, l);
+        let l_new = inst.visit(&mut mctx_mut, LeanPtr::from_raw(l));
 
         // Construct result pair (mctx, l_new)
         let result = ffi::lean_alloc_ctor_export(0, 2, 0);
@@ -2741,7 +2745,7 @@ impl InstantiateExprMVars {
     /// Visit a level and instantiate metavariables
     #[inline]
     unsafe fn visit_level(&mut self, mctx: &mut *mut LeanObject, l: *mut LeanObject) -> *mut LeanObject {
-        self.level_inst.visit(mctx, l)
+        self.level_inst.visit(mctx, LeanPtr::from_raw(l))
     }
 
     /// Visit a list of levels and instantiate metavariables
