@@ -12,7 +12,14 @@ Author: Sofia Rodrigues
 
 namespace lean {
 
+#ifdef LEAN_RUST_RUNTIME
+extern "C" uint8_t lean_byteslice_beq_rs(b_obj_arg a, b_obj_arg b);
+#endif
+
 extern "C" LEAN_EXPORT uint8_t lean_byteslice_beq(b_obj_arg a, b_obj_arg b) {
+#ifdef LEAN_RUST_RUNTIME
+    return lean_byteslice_beq_rs(a, b);
+#else
     if (a == b) { return true; }
 
     lean_object* bytearray_a = lean_ctor_get(a, 0);
@@ -34,5 +41,6 @@ extern "C" LEAN_EXPORT uint8_t lean_byteslice_beq(b_obj_arg a, b_obj_arg b) {
     const uint8_t* ptr_b = lean_sarray_cptr(bytearray_b) + start_b;
 
     return memcmp(ptr_a, ptr_b, size_a) == 0;
+#endif
 }
 }
