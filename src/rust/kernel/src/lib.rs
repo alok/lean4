@@ -222,47 +222,49 @@ struct TypeAnnotationNames {
 }
 
 const EXPR_CACHE_CAPACITY: usize = 1024;
+const REPLACE_CACHE_CAPACITY: usize = 2048;
+const ABSTRACT_CACHE_CAPACITY: usize = 1024;
 
 #[derive(Copy, Clone)]
-struct ExprCacheEntry {
-    key_ptr: usize,
-    key_off: u32,
+struct CacheEntry {
+    key_a: usize,
+    key_b: usize,
     value: *mut LeanObject,
     occupied: bool,
 }
 
-impl ExprCacheEntry {
-    const EMPTY: ExprCacheEntry = ExprCacheEntry {
-        key_ptr: 0,
-        key_off: 0,
+impl CacheEntry {
+    const EMPTY: CacheEntry = CacheEntry {
+        key_a: 0,
+        key_b: 0,
         value: std::ptr::null_mut(),
         occupied: false,
     };
 }
 
-struct FixedExprCache<const N: usize> {
-    entries: [ExprCacheEntry; N],
+struct FixedCache<const N: usize> {
+    entries: [CacheEntry; N],
 }
 
-impl<const N: usize> FixedExprCache<N> {
+impl<const N: usize> FixedCache<N> {
     #[inline(always)]
     fn new() -> Self {
         debug_assert!(N.is_power_of_two());
         Self {
-            entries: [ExprCacheEntry::EMPTY; N],
+            entries: [CacheEntry::EMPTY; N],
         }
     }
 
     #[inline(always)]
-    unsafe fn index(&self, key: (usize, u32)) -> usize {
+    unsafe fn index(&self, key: (usize, usize)) -> usize {
         let h = ffi::lean_uint64_mix_hash(key.0 as u64, key.1 as u64);
         (h as usize) & (N - 1)
     }
 
     #[inline(always)]
-    unsafe fn get(&self, key: (usize, u32)) -> Option<*mut LeanObject> {
+    unsafe fn get(&self, key: (usize, usize)) -> Option<*mut LeanObject> {
         let entry = &self.entries[self.index(key)];
-        if entry.occupied && entry.key_ptr == key.0 && entry.key_off == key.1 {
+        if entry.occupied && entry.key_a == key.0 && entry.key_b == key.1 {
             Some(entry.value)
         } else {
             None
@@ -270,10 +272,10 @@ impl<const N: usize> FixedExprCache<N> {
     }
 
     #[inline(always)]
-    unsafe fn insert(&mut self, key: (usize, u32), value: *mut LeanObject) {
+    unsafe fn insert(&mut self, key: (usize, usize), value: *mut LeanObject) {
         let entry = &mut self.entries[self.index(key)];
         if entry.occupied {
-            if entry.key_ptr == key.0 && entry.key_off == key.1 {
+            if entry.key_a == key.0 && entry.key_b == key.1 {
                 return;
             }
             if !entry.value.is_null() {
@@ -281,16 +283,16 @@ impl<const N: usize> FixedExprCache<N> {
             }
         }
         lean_inc(value);
-        *entry = ExprCacheEntry {
-            key_ptr: key.0,
-            key_off: key.1,
+        *entry = CacheEntry {
+            key_a: key.0,
+            key_b: key.1,
             value,
             occupied: true,
         };
     }
 }
 
-impl<const N: usize> Drop for FixedExprCache<N> {
+impl<const N: usize> Drop for FixedCache<N> {
     fn drop(&mut self) {
         for entry in &self.entries {
             if entry.occupied && !entry.value.is_null() {
@@ -302,7 +304,7 @@ impl<const N: usize> Drop for FixedExprCache<N> {
     }
 }
 
-type ExprCache = FixedExprCache<EXPR_CACHE_CAPACITY>;
+type ExprCache = FixedCache<EXPR_CACHE_CAPACITY>;
 
 
 const OPT_PARAM_NAME: &[u8] = b"optParam\0";
@@ -778,7 +780,7 @@ unsafe fn lower_loose_bvars_go(
     if e.is_null() || lean_ptr::is_scalar_ptr(e) {
         return e;
     }
-    let key = (e as usize, offset);
+    let key = (e as usize, offset as usize);
     if !is_likely_unshared(e) {
         if let Some(cached) = cache.get(key) {
             lean_inc(cached);
@@ -971,7 +973,7 @@ unsafe fn lift_loose_bvars_go(
     if e.is_null() || lean_ptr::is_scalar_ptr(e) {
         return e;
     }
-    let key = (e as usize, offset);
+    let key = (e as usize, offset as usize);
     if !is_likely_unshared(e) {
         if let Some(cached) = cache.get(key) {
             lean_inc(cached);
@@ -1729,7 +1731,7 @@ pub extern "C" fn lean_expr_equal_rs(a: *mut LeanObject, b: *mut LeanObject) -> 
 /// If `f(e)` returns `Some(new_e)`, uses `new_e`; otherwise recurses into children.
 struct ReplaceExpr {
     /// Cache for shared subexpressions: (original_ptr) -> result_ptr
-    cache: HashMap<*mut LeanObject, *mut LeanObject>,
+    cache: FixedCache<REPLACE_CACHE_CAPACITY>,
     /// The callback function (borrowed reference, we inc_ref on each call)
     callback: *mut LeanObject,
 }
@@ -1737,7 +1739,7 @@ struct ReplaceExpr {
 impl ReplaceExpr {
     fn new(callback: *mut LeanObject) -> Self {
         Self {
-            cache: HashMap::new(),
+            cache: FixedCache::new(),
             callback,
         }
     }
@@ -1748,7 +1750,7 @@ impl ReplaceExpr {
         // Check if e is shared and already in cache
         let shared = is_shared(e);
         if shared {
-            if let Some(&cached) = self.cache.get(&e) {
+            if let Some(cached) = self.cache.get((e as usize, 0)) {
                 // Return cached result with incremented refcount
                 lean_inc(cached);
                 return cached;
@@ -1774,7 +1776,7 @@ impl ReplaceExpr {
             // Cache the result if shared
             if shared {
                 lean_inc(new_e);
-                self.cache.insert(e, new_e);
+                self.cache.insert((e as usize, 0), new_e);
             }
             return new_e;
         }
@@ -1909,7 +1911,7 @@ impl ReplaceExpr {
         // Cache result if shared
         if shared {
             lean_inc(result);
-            self.cache.insert(e, result);
+            self.cache.insert((e as usize, 0), result);
         }
 
         result
@@ -1970,7 +1972,7 @@ unsafe fn expr_has_mvar(e: *mut LeanObject) -> bool {
 /// Expression abstraction implementation
 struct ExprAbstract {
     /// Cache for shared subexpressions: (original_ptr, offset) -> result_ptr
-    cache: HashMap<(*mut LeanObject, usize), *mut LeanObject>,
+    cache: FixedCache<ABSTRACT_CACHE_CAPACITY>,
     /// Array of fvar/mvar expressions to abstract
     subst: *mut LeanObject,
     /// Number of elements in subst to use
@@ -1980,7 +1982,7 @@ struct ExprAbstract {
 impl ExprAbstract {
     fn new(subst: *mut LeanObject, n: usize) -> Self {
         Self {
-            cache: HashMap::new(),
+            cache: FixedCache::new(),
             subst,
             n,
         }
@@ -1997,7 +1999,7 @@ impl ExprAbstract {
         // Check cache for shared expressions
         let shared = is_shared(e);
         if shared {
-            if let Some(&cached) = self.cache.get(&(e, offset)) {
+            if let Some(cached) = self.cache.get((e as usize, offset)) {
                 lean_inc(cached);
                 return cached;
             }
@@ -2163,7 +2165,7 @@ impl ExprAbstract {
         // Cache result if shared
         if shared {
             lean_inc(result);
-            self.cache.insert((e, offset), result);
+            self.cache.insert((e as usize, offset), result);
         }
 
         result
