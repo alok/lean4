@@ -33,6 +33,10 @@ unsigned get_utf8_size(unsigned char c) {
 }
 
 extern "C" LEAN_EXPORT size_t lean_utf8_strlen(char const * str) {
+#ifdef LEAN_RUST_RUNTIME
+    extern size_t lean_utf8_strlen_rs(char const * str);
+    return lean_utf8_strlen_rs(str);
+#else
     size_t r = 0;
     while (*str != 0) {
         unsigned sz = get_utf8_size(*str);
@@ -40,6 +44,7 @@ extern "C" LEAN_EXPORT size_t lean_utf8_strlen(char const * str) {
         str += sz;
     }
     return r;
+#endif
 }
 
 size_t utf8_strlen(char const * str) {
@@ -47,6 +52,10 @@ size_t utf8_strlen(char const * str) {
 }
 
 extern "C" LEAN_EXPORT size_t lean_utf8_n_strlen(char const * str, size_t sz) {
+#ifdef LEAN_RUST_RUNTIME
+    extern size_t lean_utf8_n_strlen_rs(char const * str, size_t sz);
+    return lean_utf8_n_strlen_rs(str, sz);
+#else
     size_t r = 0;
     size_t i = 0;
     while (i < sz) {
@@ -55,6 +64,7 @@ extern "C" LEAN_EXPORT size_t lean_utf8_n_strlen(char const * str, size_t sz) {
         i += d;
     }
     return r;
+#endif
 }
 
 size_t utf8_strlen(char const * str, size_t sz) {

@@ -106,6 +106,53 @@ pub extern "C" fn hash_str_rs(len: usize, str_ptr: *const u8, init_value: u64) -
     }
 }
 
+#[no_mangle]
+pub extern "C" fn lean_utf8_strlen_rs(str_ptr: *const u8) -> usize {
+    unsafe {
+        let mut r = 0usize;
+        let mut p = str_ptr;
+        while *p != 0 {
+            let sz = utf8_size(*p);
+            r += 1;
+            p = p.add(sz as usize);
+        }
+        r
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn lean_utf8_n_strlen_rs(str_ptr: *const u8, sz: usize) -> usize {
+    unsafe {
+        let mut r = 0usize;
+        let mut i = 0usize;
+        while i < sz {
+            let d = utf8_size(*str_ptr.add(i));
+            r += 1;
+            i = i.wrapping_add(d as usize);
+        }
+        r
+    }
+}
+
+#[inline(always)]
+fn utf8_size(c: u8) -> u32 {
+    if (c & 0x80) == 0 {
+        1
+    } else if (c & 0xE0) == 0xC0 {
+        2
+    } else if (c & 0xF0) == 0xE0 {
+        3
+    } else if (c & 0xF8) == 0xF0 {
+        4
+    } else if (c & 0xFC) == 0xF8 {
+        5
+    } else if (c & 0xFE) == 0xFC {
+        6
+    } else {
+        1
+    }
+}
+
 // Placeholder symbol to prove the Rust runtime staticlib is wired in.
 #[no_mangle]
 pub extern "C" fn lean_runtime_rs_ping() -> c_uchar {
