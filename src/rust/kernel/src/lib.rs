@@ -440,12 +440,12 @@ unsafe fn match_app2_const_arg1(
 }
 
 fn data_for(o: *mut LeanObject) -> Option<u64> {
-    let obj = unsafe { LeanObj::new(o)? };
-    if obj.is_scalar() {
-        None
-    } else {
-        Some(obj.ctor_data_u64())
+    let ptr = LeanPtr::from_raw(o);
+    if ptr.is_null() || ptr.is_scalar() {
+        return None;
     }
+    let obj = unsafe { LeanObj::new(ptr.to_raw())? };
+    Some(obj.ctor_data_u64())
 }
 
 
@@ -488,11 +488,11 @@ pub extern "C" fn lean_level_mk_data_rs(
     has_mvar: c_uchar,
     has_param: c_uchar,
 ) -> u64 {
-    let is_scalar = lean_ptr::is_scalar_ptr(depth);
-    if !is_scalar {
+    let depth_ptr = LeanPtr::from_raw(depth);
+    if !depth_ptr.is_scalar() {
         unsafe { ffi::lean_internal_panic(LEVEL_DEPTH_TOO_BIG.as_ptr() as *const c_char) };
     }
-    let d = lean_ptr::unbox_ptr(depth);
+    let d = lean_ptr::unbox_ptr(depth_ptr.to_raw());
     if d > 16_777_215 {
         unsafe { ffi::lean_internal_panic(LEVEL_DEPTH_TOO_BIG.as_ptr() as *const c_char) };
     }
