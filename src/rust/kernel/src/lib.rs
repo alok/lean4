@@ -11,7 +11,7 @@ mod type_checker;
 
 use libc::{c_char, c_uchar};
 use static_assertions::const_assert;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::OnceLock;
 
@@ -224,6 +224,9 @@ struct TypeAnnotationNames {
 const EXPR_CACHE_CAPACITY: usize = 1024;
 const REPLACE_CACHE_CAPACITY: usize = 2048;
 const ABSTRACT_CACHE_CAPACITY: usize = 1024;
+const INSTANTIATE_CACHE_CAPACITY: usize = 1024;
+const LEVEL_MVAR_CACHE_CAPACITY: usize = 2048;
+const EXPR_MVAR_CACHE_CAPACITY: usize = 2048;
 
 #[derive(Copy, Clone)]
 struct CacheEntry {
@@ -2214,7 +2217,7 @@ pub extern "C" fn lean_expr_abstract_range_rs(
 /// Replaces bound variables with expressions from a substitution array
 struct ExprInstantiate<'a> {
     /// Cache for shared subexpressions: (original_ptr, offset) -> result_ptr
-    cache: HashMap<(*mut LeanObject, usize), *mut LeanObject>,
+    cache: FixedCache<INSTANTIATE_CACHE_CAPACITY>,
     /// Pointer to substitution array elements
     subst: *const *mut LeanObject,
     /// Number of elements in substitution
@@ -2228,7 +2231,7 @@ struct ExprInstantiate<'a> {
 impl<'a> ExprInstantiate<'a> {
     fn new(subst: *const *mut LeanObject, n: usize, reverse: bool) -> Self {
         Self {
-            cache: HashMap::new(),
+            cache: FixedCache::new(),
             subst,
             n,
             reverse,
@@ -2248,7 +2251,7 @@ impl<'a> ExprInstantiate<'a> {
         // Check cache for shared expressions
         let shared = is_shared(e);
         if shared {
-            if let Some(&cached) = self.cache.get(&(e, offset)) {
+            if let Some(cached) = self.cache.get((e as usize, offset)) {
                 lean_inc(cached);
                 return cached;
             }
@@ -2416,7 +2419,7 @@ impl<'a> ExprInstantiate<'a> {
         // Cache result if shared
         if shared {
             lean_inc(result);
-            self.cache.insert((e, offset), result);
+            self.cache.insert((e as usize, offset), result);
         }
 
         result
@@ -2579,14 +2582,14 @@ const LEVEL_MVAR_TAG: u8 = 5;
 
 /// Level instantiation for metavariables
 struct InstantiateLevelMVars {
-    cache: HashMap<*mut LeanObject, *mut LeanObject>,
+    cache: FixedCache<LEVEL_MVAR_CACHE_CAPACITY>,
     saved: Vec<*mut LeanObject>,
 }
 
 impl InstantiateLevelMVars {
     fn new() -> Self {
         Self {
-            cache: HashMap::new(),
+            cache: FixedCache::new(),
             saved: Vec::new(),
         }
     }
@@ -2611,7 +2614,7 @@ impl InstantiateLevelMVars {
     unsafe fn cache_result(&mut self, l: *mut LeanObject, r: *mut LeanObject, shared: bool) {
         if shared {
             lean_inc(r);
-            self.cache.insert(l, r);
+            self.cache.insert((l as usize, 0), r);
         }
     }
 
@@ -2635,7 +2638,7 @@ impl InstantiateLevelMVars {
 
         let shared = is_shared(ptr);
         if shared {
-            if let Some(&cached) = self.cache.get(&ptr) {
+            if let Some(cached) = self.cache.get((ptr as usize, 0)) {
                 lean_inc(cached);
                 return cached;
             }
@@ -2771,7 +2774,7 @@ pub extern "C" fn lean_instantiate_level_mvars_rs(
 /// - Beta reduction for assigned mvars applied to arguments
 struct InstantiateExprMVars {
     /// Cache for shared subexpressions
-    cache: HashMap<*mut LeanObject, *mut LeanObject>,
+    cache: FixedCache<EXPR_MVAR_CACHE_CAPACITY>,
     /// Saved expressions to prevent GC (since cache may reference subterms)
     saved: Vec<*mut LeanObject>,
     /// Already normalized mvar names (to avoid infinite loops)
@@ -2783,7 +2786,7 @@ struct InstantiateExprMVars {
 impl InstantiateExprMVars {
     fn new() -> Self {
         Self {
-            cache: HashMap::new(),
+            cache: FixedCache::new(),
             saved: Vec::new(),
             already_normalized: HashSet::new(),
             level_inst: InstantiateLevelMVars::new(),
@@ -3274,7 +3277,7 @@ impl InstantiateExprMVars {
 
         let shared = is_shared(e);
         if shared {
-            if let Some(&cached) = self.cache.get(&e) {
+            if let Some(cached) = self.cache.get((e as usize, 0)) {
                 lean_inc(cached);
                 return cached;
             }
@@ -3406,7 +3409,7 @@ impl InstantiateExprMVars {
 
         if shared {
             lean_inc(result);
-            self.cache.insert(e, result);
+            self.cache.insert((e as usize, 0), result);
         }
 
         result
