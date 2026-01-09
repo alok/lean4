@@ -179,6 +179,44 @@ pub extern "C" fn lean_system_platform_emscripten_rs() -> c_uchar {
     cfg!(target_os = "emscripten") as c_uchar
 }
 
+#[cfg(not(windows))]
+#[no_mangle]
+pub extern "C" fn lean_io_process_get_pid_rs() -> u32 {
+    unsafe { libc::getpid() as u32 }
+}
+
+#[cfg(not(windows))]
+#[no_mangle]
+pub extern "C" fn lean_io_get_tid_rs() -> u64 {
+    #[cfg(target_os = "macos")]
+    unsafe {
+        let mut tid: u64 = 0;
+        if libc::pthread_threadid_np(0, &mut tid) != 0 {
+            return 0;
+        }
+        return tid;
+    }
+
+    #[cfg(target_os = "emscripten")]
+    {
+        0
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    unsafe {
+        libc::syscall(libc::SYS_gettid) as u64
+    }
+
+    #[cfg(all(
+        not(target_os = "macos"),
+        not(target_os = "emscripten"),
+        not(any(target_os = "linux", target_os = "android"))
+    ))]
+    {
+        0
+    }
+}
+
 #[cfg(target_os = "macos")]
 #[no_mangle]
 pub extern "C" fn get_peak_rss_rs() -> usize {

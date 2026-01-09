@@ -314,6 +314,11 @@ void finalize_process() {}
 
 #else
 
+#ifdef LEAN_RUST_RUNTIME
+extern "C" uint32_t lean_io_process_get_pid_rs();
+extern "C" uint64_t lean_io_get_tid_rs();
+#endif
+
 extern "C" LEAN_EXPORT obj_res lean_io_process_get_current_dir() {
     char path[PATH_MAX];
     if (getcwd(path, PATH_MAX)) {
@@ -332,11 +337,18 @@ extern "C" LEAN_EXPORT obj_res lean_io_process_set_current_dir(b_obj_arg path) {
 }
 
 extern "C" LEAN_EXPORT uint32_t lean_io_process_get_pid() {
+#ifdef LEAN_RUST_RUNTIME
+    return lean_io_process_get_pid_rs();
+#else
     static_assert(sizeof(pid_t) == sizeof(uint32), "pid_t is expected to be a 32-bit type"); // NOLINT
     return getpid();
+#endif
 }
 
 extern "C" LEAN_EXPORT uint64_t lean_io_get_tid() {
+#ifdef LEAN_RUST_RUNTIME
+    return lean_io_get_tid_rs();
+#else
     uint64_t tid;
 #ifdef __APPLE__
     lean_always_assert(pthread_threadid_np(NULL, &tid) == 0);
@@ -348,6 +360,7 @@ extern "C" LEAN_EXPORT uint64_t lean_io_get_tid() {
     tid = (pid_t)syscall(SYS_gettid);
 #endif
     return tid;
+#endif
 }
 
 extern "C" LEAN_EXPORT obj_res lean_io_process_child_wait(b_obj_arg, b_obj_arg child) {
