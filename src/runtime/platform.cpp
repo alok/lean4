@@ -10,34 +10,54 @@ Author: Leonardo de Moura
 
 namespace lean {
 extern "C" LEAN_EXPORT obj_res lean_system_platform_nbits(obj_arg) {
+#ifdef LEAN_RUST_RUNTIME
+    extern obj_res lean_system_platform_nbits_rs();
+    return lean_system_platform_nbits_rs();
+#else
     if (sizeof(void*) == 8) {
         return box(64);
     } else {
         return box(32);
     }
+#endif
 }
 
 extern "C" LEAN_EXPORT uint8 lean_system_platform_windows(obj_arg) {
+#ifdef LEAN_RUST_RUNTIME
+    extern uint8 lean_system_platform_windows_rs();
+    return lean_system_platform_windows_rs();
+#else
 #if defined(LEAN_WINDOWS)
     return 1;
 #else
     return 0;
 #endif
+#endif
 }
 
 extern "C" LEAN_EXPORT uint8 lean_system_platform_osx(obj_arg) {
+#ifdef LEAN_RUST_RUNTIME
+    extern uint8 lean_system_platform_osx_rs();
+    return lean_system_platform_osx_rs();
+#else
 #if defined(__APPLE__)
     return 1;
 #else
     return 0;
 #endif
+#endif
 }
 
 extern "C" LEAN_EXPORT uint8 lean_system_platform_emscripten(obj_arg) {
+#ifdef LEAN_RUST_RUNTIME
+    extern uint8 lean_system_platform_emscripten_rs();
+    return lean_system_platform_emscripten_rs();
+#else
 #if defined(LEAN_EMSCRIPTEN)
     return 1;
 #else
     return 0;
+#endif
 #endif
 }
 

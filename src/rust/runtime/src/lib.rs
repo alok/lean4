@@ -153,6 +153,32 @@ fn utf8_size(c: u8) -> u32 {
     }
 }
 
+#[inline(always)]
+fn lean_box_usize(n: usize) -> *mut LeanObject {
+    ((n << 1) | 1) as *mut LeanObject
+}
+
+#[no_mangle]
+pub extern "C" fn lean_system_platform_nbits_rs() -> *mut LeanObject {
+    let bits = std::mem::size_of::<*const u8>() * 8;
+    lean_box_usize(bits)
+}
+
+#[no_mangle]
+pub extern "C" fn lean_system_platform_windows_rs() -> c_uchar {
+    cfg!(windows) as c_uchar
+}
+
+#[no_mangle]
+pub extern "C" fn lean_system_platform_osx_rs() -> c_uchar {
+    cfg!(target_os = "macos") as c_uchar
+}
+
+#[no_mangle]
+pub extern "C" fn lean_system_platform_emscripten_rs() -> c_uchar {
+    cfg!(target_os = "emscripten") as c_uchar
+}
+
 // Placeholder symbol to prove the Rust runtime staticlib is wired in.
 #[no_mangle]
 pub extern "C" fn lean_runtime_rs_ping() -> c_uchar {
