@@ -227,6 +227,7 @@ const ABSTRACT_CACHE_CAPACITY: usize = 1024;
 const INSTANTIATE_CACHE_CAPACITY: usize = 1024;
 const LEVEL_MVAR_CACHE_CAPACITY: usize = 2048;
 const EXPR_MVAR_CACHE_CAPACITY: usize = 2048;
+const EXPR_EQ_CACHE_CAPACITY: usize = 2048;
 
 #[derive(Copy, Clone)]
 struct CacheEntry {
@@ -308,6 +309,57 @@ impl<const N: usize> Drop for FixedCache<N> {
 }
 
 type ExprCache = FixedCache<EXPR_CACHE_CAPACITY>;
+
+#[derive(Copy, Clone)]
+struct PairEntry {
+    key_a: usize,
+    key_b: usize,
+    occupied: bool,
+}
+
+impl PairEntry {
+    const EMPTY: PairEntry = PairEntry {
+        key_a: 0,
+        key_b: 0,
+        occupied: false,
+    };
+}
+
+struct FixedPairSet<const N: usize> {
+    entries: [PairEntry; N],
+}
+
+impl<const N: usize> FixedPairSet<N> {
+    #[inline(always)]
+    fn new() -> Self {
+        debug_assert!(N.is_power_of_two());
+        Self {
+            entries: [PairEntry::EMPTY; N],
+        }
+    }
+
+    #[inline(always)]
+    unsafe fn index(&self, key: (usize, usize)) -> usize {
+        let h = ffi::lean_uint64_mix_hash(key.0 as u64, key.1 as u64);
+        (h as usize) & (N - 1)
+    }
+
+    #[inline(always)]
+    unsafe fn contains(&self, key: (usize, usize)) -> bool {
+        let entry = &self.entries[self.index(key)];
+        entry.occupied && entry.key_a == key.0 && entry.key_b == key.1
+    }
+
+    #[inline(always)]
+    unsafe fn insert(&mut self, key: (usize, usize)) {
+        let entry = &mut self.entries[self.index(key)];
+        *entry = PairEntry {
+            key_a: key.0,
+            key_b: key.1,
+            occupied: true,
+        };
+    }
+}
 
 
 const OPT_PARAM_NAME: &[u8] = b"optParam\0";
@@ -1508,14 +1560,14 @@ unsafe fn literal_eq(a: *mut LeanObject, b: *mut LeanObject) -> bool {
 /// Expression equality implementation
 /// When compare_binder_info is true, also compares binder names and info for lambda/pi/let
 struct ExprEq {
-    cache: HashSet<(*mut LeanObject, *mut LeanObject)>,
+    cache: FixedPairSet<EXPR_EQ_CACHE_CAPACITY>,
     compare_binder_info: bool,
 }
 
 impl ExprEq {
     fn new(compare_binder_info: bool) -> Self {
         Self {
-            cache: HashSet::new(),
+            cache: FixedPairSet::new(),
             compare_binder_info,
         }
     }
@@ -1524,8 +1576,8 @@ impl ExprEq {
         if !is_shared(a) || !is_shared(b) {
             return false;
         }
-        let key = (a, b);
-        if self.cache.contains(&key) {
+        let key = (a as usize, b as usize);
+        if self.cache.contains(key) {
             return true;
         }
         self.cache.insert(key);
