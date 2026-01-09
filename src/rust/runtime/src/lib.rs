@@ -1,6 +1,8 @@
 #![allow(clippy::missing_safety_doc)]
 
 use libc::{c_char, c_int, c_uchar, c_void, memcmp};
+use std::collections::{HashMap, HashSet};
+use std::hash::{BuildHasherDefault, Hash, Hasher};
 
 #[repr(C)]
 pub struct LeanObject {
@@ -19,6 +21,23 @@ mod ffi {
         pub fn lean_io_result_mk_ok_ffi(a: *mut LeanObject) -> *mut LeanObject;
         pub fn lean_io_result_mk_error_ffi(e: *mut LeanObject) -> *mut LeanObject;
         pub fn lean_string_cstr_ffi(o: *mut LeanObject) -> *const i8;
+        pub fn lean_is_st_ffi(o: *mut LeanObject) -> c_uchar;
+        pub fn lean_is_exclusive_ffi(o: *mut LeanObject) -> c_uchar;
+        pub fn lean_is_ctor_ffi(o: *mut LeanObject) -> c_uchar;
+        pub fn lean_is_array_ffi(o: *mut LeanObject) -> c_uchar;
+        pub fn lean_is_sarray_ffi(o: *mut LeanObject) -> c_uchar;
+        pub fn lean_is_string_ffi(o: *mut LeanObject) -> c_uchar;
+        pub fn lean_is_mpz_ffi(o: *mut LeanObject) -> c_uchar;
+        pub fn lean_inc_ref_ffi(o: *mut LeanObject);
+        pub fn lean_dec_ref_ffi(o: *mut LeanObject);
+        pub fn lean_ctor_num_objs_ffi(o: *mut LeanObject) -> u32;
+        pub fn lean_ctor_get_core_ffi(o: *mut LeanObject, idx: u32) -> *mut LeanObject;
+        pub fn lean_ctor_set_core_ffi(o: *mut LeanObject, idx: u32, v: *mut LeanObject);
+        pub fn lean_alloc_ctor_ffi(tag: u32, num_objs: u32, scalar_sz: u32) -> *mut LeanObject;
+        pub fn lean_alloc_array_ffi(size: size_t, capacity: size_t) -> *mut LeanObject;
+        pub fn lean_array_size_ffi(o: *mut LeanObject) -> size_t;
+        pub fn lean_array_get_core_ffi(o: *mut LeanObject, idx: size_t) -> *mut LeanObject;
+        pub fn lean_array_set_core_ffi(o: *mut LeanObject, idx: size_t, v: *mut LeanObject);
         pub fn lean_ptr_tag_ffi(o: *mut LeanObject) -> c_uchar;
         pub fn lean_ptr_other_ffi(o: *mut LeanObject) -> u32;
         pub fn lean_is_scalar_ffi(o: *mut LeanObject) -> c_uchar;
@@ -29,6 +48,7 @@ mod ffi {
         pub fn lean_object_data_byte_size(o: *mut LeanObject) -> size_t;
         pub fn lean_mk_string_from_bytes(s: *const c_char, sz: size_t) -> *mut LeanObject;
         pub fn lean_decode_io_error(errnum: c_int, fname: *mut LeanObject) -> *mut LeanObject;
+        pub fn lean_object_byte_size(o: *mut LeanObject) -> size_t;
     }
 }
 
@@ -237,6 +257,222 @@ pub extern "C" fn lean_io_process_set_current_dir_rs(path: *mut LeanObject) -> *
         let err_obj = ffi::lean_decode_io_error(err as c_int, path);
         ffi::lean_io_result_mk_error_ffi(err_obj)
     }
+}
+
+#[derive(Default)]
+struct IdentityHasher(u64);
+
+impl Hasher for IdentityHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        let mut h = 0u64;
+        let mut shift = 0u32;
+        for &b in bytes.iter().take(8) {
+            h |= (b as u64) << shift;
+            shift += 8;
+        }
+        self.0 = h;
+    }
+
+    fn write_u64(&mut self, i: u64) {
+        self.0 = i;
+    }
+
+    fn write_usize(&mut self, i: usize) {
+        self.0 = i as u64;
+    }
+}
+
+type BuildIdentityHasher = BuildHasherDefault<IdentityHasher>;
+
+#[derive(Copy, Clone)]
+struct PtrKey(*mut LeanObject);
+
+impl Hash for PtrKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_usize(self.0 as usize);
+    }
+}
+
+impl PartialEq for PtrKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl Eq for PtrKey {}
+
+#[derive(Copy, Clone)]
+struct LeanObjKey(*mut LeanObject);
+
+impl Hash for LeanObjKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let h = lean_sharecommon_hash_rs(self.0);
+        state.write_u64(h);
+    }
+}
+
+impl PartialEq for LeanObjKey {
+    fn eq(&self, other: &Self) -> bool {
+        if self.0 == other.0 {
+            return true;
+        }
+        lean_sharecommon_eq_rs(self.0, other.0) != 0
+    }
+}
+
+impl Eq for LeanObjKey {}
+
+struct ShareCommonQuick {
+    cache: HashMap<PtrKey, *mut LeanObject, BuildIdentityHasher>,
+    set: HashSet<LeanObjKey, BuildIdentityHasher>,
+    check_set: bool,
+}
+
+impl ShareCommonQuick {
+    fn new(check_set: bool) -> Self {
+        ShareCommonQuick {
+            cache: HashMap::with_hasher(BuildIdentityHasher::default()),
+            set: HashSet::with_hasher(BuildIdentityHasher::default()),
+            check_set,
+        }
+    }
+
+    fn check_cache(&mut self, a: *mut LeanObject) -> Option<*mut LeanObject> {
+        unsafe {
+            if ffi::lean_is_exclusive_ffi(a) != 0 {
+                return None;
+            }
+        }
+        if let Some(&r) = self.cache.get(&PtrKey(a)) {
+            unsafe {
+                debug_assert!(ffi::lean_is_st_ffi(r) != 0);
+                ffi::lean_inc_ref_ffi(r);
+            }
+            return Some(r);
+        }
+        if self.check_set {
+            if let Some(existing) = self.set.get(&LeanObjKey(a)) {
+                let r = existing.0;
+                unsafe {
+                    debug_assert!(ffi::lean_is_st_ffi(r) != 0);
+                    ffi::lean_inc_ref_ffi(r);
+                }
+                return Some(r);
+            }
+        }
+        None
+    }
+
+    fn save(&mut self, a: *mut LeanObject, new_a: *mut LeanObject) -> *mut LeanObject {
+        let mut result = new_a;
+        if let Some(existing) = self.set.get(&LeanObjKey(new_a)) {
+            result = existing.0;
+            unsafe {
+                ffi::lean_dec_ref_ffi(new_a);
+                debug_assert!(ffi::lean_is_st_ffi(result) != 0);
+                ffi::lean_inc_ref_ffi(result);
+            }
+        } else {
+            self.set.insert(LeanObjKey(new_a));
+        }
+        unsafe {
+            if ffi::lean_is_exclusive_ffi(a) == 0 {
+                self.cache.insert(PtrKey(a), result);
+            }
+        }
+        result
+    }
+
+    fn visit_terminal(&mut self, a: *mut LeanObject) -> *mut LeanObject {
+        if let Some(existing) = self.set.get(&LeanObjKey(a)) {
+            let r = existing.0;
+            unsafe {
+                ffi::lean_inc_ref_ffi(r);
+            }
+            r
+        } else {
+            self.set.insert(LeanObjKey(a));
+            unsafe {
+                ffi::lean_inc_ref_ffi(a);
+            }
+            a
+        }
+    }
+
+    fn visit_array(&mut self, a: *mut LeanObject) -> *mut LeanObject {
+        if let Some(r) = self.check_cache(a) {
+            return r;
+        }
+        let sz = unsafe { ffi::lean_array_size_ffi(a) as usize };
+        let new_a = unsafe { ffi::lean_alloc_array_ffi(sz, sz) };
+        for i in 0..sz {
+            let child = unsafe { ffi::lean_array_get_core_ffi(a, i) };
+            let new_child = self.visit(child);
+            unsafe {
+                ffi::lean_array_set_core_ffi(new_a, i, new_child);
+            }
+        }
+        self.save(a, new_a)
+    }
+
+    fn visit_ctor(&mut self, a: *mut LeanObject) -> *mut LeanObject {
+        if let Some(r) = self.check_cache(a) {
+            return r;
+        }
+        let num_objs = unsafe { ffi::lean_ctor_num_objs_ffi(a) };
+        let tag = unsafe { ffi::lean_ptr_tag_ffi(a) as u32 };
+        let sz = unsafe { ffi::lean_object_byte_size(a) as usize };
+        let scalar_offset = std::mem::size_of::<LeanObject>()
+            + (num_objs as usize) * std::mem::size_of::<*mut LeanObject>();
+        let scalar_sz = sz.saturating_sub(scalar_offset);
+        let new_a = unsafe { ffi::lean_alloc_ctor_ffi(tag, num_objs, scalar_sz as u32) };
+        for i in 0..num_objs {
+            let child = unsafe { ffi::lean_ctor_get_core_ffi(a, i) };
+            let new_child = self.visit(child);
+            unsafe {
+                ffi::lean_ctor_set_core_ffi(new_a, i, new_child);
+            }
+        }
+        if scalar_sz > 0 {
+            unsafe {
+                let src = (a as *const u8).add(scalar_offset);
+                let dst = (new_a as *mut u8).add(scalar_offset);
+                std::ptr::copy_nonoverlapping(src, dst, scalar_sz);
+            }
+        }
+        self.save(a, new_a)
+    }
+
+    fn visit(&mut self, a: *mut LeanObject) -> *mut LeanObject {
+        unsafe {
+            if ffi::lean_is_scalar_ffi(a) != 0 {
+                return a;
+            }
+            if ffi::lean_is_array_ffi(a) != 0 {
+                return self.visit_array(a);
+            }
+            if ffi::lean_is_sarray_ffi(a) != 0
+                || ffi::lean_is_string_ffi(a) != 0
+                || ffi::lean_is_mpz_ffi(a) != 0
+            {
+                return self.visit_terminal(a);
+            }
+            if ffi::lean_is_ctor_ffi(a) != 0 {
+                return self.visit_ctor(a);
+            }
+            ffi::lean_inc_ref_ffi(a);
+            a
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn lean_sharecommon_quick_rs(a: *mut LeanObject) -> *mut LeanObject {
+    ShareCommonQuick::new(false).visit(a)
 }
 
 #[no_mangle]

@@ -13,6 +13,7 @@ namespace lean {
 #ifdef LEAN_RUST_RUNTIME
 extern "C" uint8 lean_sharecommon_eq_rs(b_obj_arg o1, b_obj_arg o2);
 extern "C" uint64_t lean_sharecommon_hash_rs(b_obj_arg o);
+extern "C" obj_res lean_sharecommon_quick_rs(obj_arg a);
 #endif
 
 extern "C" LEAN_EXPORT uint8 lean_sharecommon_eq(b_obj_arg o1, b_obj_arg o2) {
@@ -454,7 +455,11 @@ lean_object * sharecommon_quick_fn::visit(lean_object * a) {
 
 // def ShareCommon.shareCommon' (a : A) : A := a
 extern "C" LEAN_EXPORT obj_res lean_sharecommon_quick(obj_arg a) {
+#ifdef LEAN_RUST_RUNTIME
+    return lean_sharecommon_quick_rs(a);
+#else
     return sharecommon_quick_fn()(a);
+#endif
 }
 
 lean_object * sharecommon_persistent_fn::operator()(lean_object * e) {
