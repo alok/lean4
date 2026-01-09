@@ -140,7 +140,7 @@ pub struct LeanObj<'a> {
 impl<'a> LeanObj<'a> {
     #[inline(always)]
     pub unsafe fn new(ptr: *mut LeanObject) -> Option<Self> {
-        if ptr.is_null() {
+        if ptr.is_null() || ptr::is_scalar_ptr(ptr) {
             None
         } else {
             Some(Self {
