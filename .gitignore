@@ -8,6 +8,7 @@ lake-manifest.json
 /src/lakefile.toml
 /lakefile.toml
 src/rust/target
+src/rust/**/target
 GPATH
 GRTAGS
 GSYMS

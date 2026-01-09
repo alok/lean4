@@ -1,5 +1,5 @@
 [workspace]
-members = ["kernel", "runtime"]
+members = ["kernel", "runtime", "verify"]
 resolver = "2"
 
 [profile.release]

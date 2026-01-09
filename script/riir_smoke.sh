@@ -7,6 +7,7 @@ lake_bin="${LAKE_BIN:-"$stage1_bin/lake"}"
 lean4checker_bin="${LEAN4CHECKER_BIN:-"$root/../lean4checker/.lake/build/bin/lean4checker"}"
 lean4lean_bin="${LEAN4LEAN_BIN:-"$root/../lean4lean/.lake/build/bin/lean4lean"}"
 lean4lean_args="${LEAN4LEAN_ARGS:-}"
+aeneas_verify="${RIIR_AENEAS:-0}"
 ffi_tests=()
 
 profile="${RIIR_PROFILE:-full}"
@@ -93,4 +94,8 @@ if [[ ${#ffi_tests[@]} -ne 0 ]]; then
   for t in "${ffi_tests[@]}"; do
     (cd "$root/$(dirname "$t")" && LAKE="$lake_bin" LAKE_NO_CACHE=1 LAKE_CACHE_DIR="" ./$(basename "$t"))
   done
+fi
+
+if [[ "$aeneas_verify" != "0" && "$aeneas_verify" != "false" ]]; then
+  "$root/script/run_aeneas.sh"
 fi
