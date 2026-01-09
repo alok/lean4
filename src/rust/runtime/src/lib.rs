@@ -1,6 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 
-use libc::{c_uchar, c_void, memcmp};
+use libc::{c_char, c_int, c_uchar, c_void, memcmp};
 
 #[repr(C)]
 pub struct LeanObject {
@@ -10,12 +10,15 @@ pub struct LeanObject {
 #[allow(dead_code)]
 mod ffi {
     use super::LeanObject;
-    use libc::{c_uchar, size_t};
+    use libc::{c_char, c_int, c_uchar, size_t};
 
     extern "C" {
         pub fn lean_ctor_get_ffi(o: *mut LeanObject, idx: u32) -> *mut LeanObject;
         pub fn lean_unbox_ffi(o: *mut LeanObject) -> size_t;
         pub fn lean_sarray_cptr_ffi(a: *mut LeanObject) -> *mut c_uchar;
+        pub fn lean_io_result_mk_ok_ffi(a: *mut LeanObject) -> *mut LeanObject;
+        pub fn lean_io_result_mk_error_ffi(e: *mut LeanObject) -> *mut LeanObject;
+        pub fn lean_string_cstr_ffi(o: *mut LeanObject) -> *const i8;
         pub fn lean_ptr_tag_ffi(o: *mut LeanObject) -> c_uchar;
         pub fn lean_ptr_other_ffi(o: *mut LeanObject) -> u32;
         pub fn lean_is_scalar_ffi(o: *mut LeanObject) -> c_uchar;
@@ -24,6 +27,8 @@ mod ffi {
         pub fn lean_mpz_eq_ffi(a: *mut LeanObject, b: *mut LeanObject) -> c_uchar;
         pub fn lean_mpz_hash_ffi(a: *mut LeanObject) -> u64;
         pub fn lean_object_data_byte_size(o: *mut LeanObject) -> size_t;
+        pub fn lean_mk_string_from_bytes(s: *const c_char, sz: size_t) -> *mut LeanObject;
+        pub fn lean_decode_io_error(errnum: c_int, fname: *mut LeanObject) -> *mut LeanObject;
     }
 }
 
@@ -197,6 +202,41 @@ pub extern "C" fn lean_system_platform_osx_rs() -> c_uchar {
 #[no_mangle]
 pub extern "C" fn lean_system_platform_emscripten_rs() -> c_uchar {
     cfg!(target_os = "emscripten") as c_uchar
+}
+
+#[cfg(not(windows))]
+#[no_mangle]
+pub extern "C" fn lean_io_process_get_current_dir_rs() -> *mut LeanObject {
+    unsafe {
+        let cwd_ptr = libc::getcwd(std::ptr::null_mut(), 0);
+        if cwd_ptr.is_null() {
+            let err = std::io::Error::last_os_error()
+                .raw_os_error()
+                .unwrap_or(0);
+            let err_obj = ffi::lean_decode_io_error(err as c_int, std::ptr::null_mut());
+            return ffi::lean_io_result_mk_error_ffi(err_obj);
+        }
+        let len = libc::strlen(cwd_ptr);
+        let str_obj = ffi::lean_mk_string_from_bytes(cwd_ptr, len);
+        libc::free(cwd_ptr as *mut c_void);
+        ffi::lean_io_result_mk_ok_ffi(str_obj)
+    }
+}
+
+#[cfg(not(windows))]
+#[no_mangle]
+pub extern "C" fn lean_io_process_set_current_dir_rs(path: *mut LeanObject) -> *mut LeanObject {
+    unsafe {
+        let path_ptr = ffi::lean_string_cstr_ffi(path) as *const c_char;
+        if libc::chdir(path_ptr) == 0 {
+            return ffi::lean_io_result_mk_ok_ffi(lean_box_usize(0));
+        }
+        let err = std::io::Error::last_os_error()
+            .raw_os_error()
+            .unwrap_or(0);
+        let err_obj = ffi::lean_decode_io_error(err as c_int, path);
+        ffi::lean_io_result_mk_error_ffi(err_obj)
+    }
 }
 
 #[no_mangle]

@@ -22,6 +22,18 @@ extern "C" LEAN_EXPORT uint8_t * lean_sarray_cptr_ffi(b_lean_obj_arg a) {
     return lean_sarray_cptr(a);
 }
 
+extern "C" LEAN_EXPORT lean_object * lean_io_result_mk_ok_ffi(lean_obj_arg a) {
+    return lean_io_result_mk_ok(a);
+}
+
+extern "C" LEAN_EXPORT lean_object * lean_io_result_mk_error_ffi(lean_obj_arg e) {
+    return lean_io_result_mk_error(e);
+}
+
+extern "C" LEAN_EXPORT char const * lean_string_cstr_ffi(b_lean_obj_arg o) {
+    return lean_string_cstr(o);
+}
+
 extern "C" LEAN_EXPORT uint8_t lean_ptr_tag_ffi(b_lean_obj_arg o) {
     return lean_ptr_tag(o);
 }

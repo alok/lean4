@@ -317,23 +317,33 @@ void finalize_process() {}
 #ifdef LEAN_RUST_RUNTIME
 extern "C" uint32_t lean_io_process_get_pid_rs();
 extern "C" uint64_t lean_io_get_tid_rs();
+extern "C" obj_res lean_io_process_get_current_dir_rs();
+extern "C" obj_res lean_io_process_set_current_dir_rs(b_obj_arg path);
 #endif
 
 extern "C" LEAN_EXPORT obj_res lean_io_process_get_current_dir() {
+#ifdef LEAN_RUST_RUNTIME
+    return lean_io_process_get_current_dir_rs();
+#else
     char path[PATH_MAX];
     if (getcwd(path, PATH_MAX)) {
         return io_result_mk_ok(mk_string(path));
     } else {
         return io_result_mk_error(decode_io_error(errno, nullptr));
     }
+#endif
 }
 
 extern "C" LEAN_EXPORT obj_res lean_io_process_set_current_dir(b_obj_arg path) {
+#ifdef LEAN_RUST_RUNTIME
+    return lean_io_process_set_current_dir_rs(path);
+#else
     if (!chdir(string_cstr(path))) {
         return io_result_mk_ok(box(0));
     } else {
         return io_result_mk_error(decode_io_error(errno, path));
     }
+#endif
 }
 
 extern "C" LEAN_EXPORT uint32_t lean_io_process_get_pid() {
