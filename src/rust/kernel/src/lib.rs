@@ -221,42 +221,88 @@ struct TypeAnnotationNames {
     semi_out_param: usize,
 }
 
-struct ExprCache {
-    map: HashMap<(usize, u32), *mut LeanObject>,
+const EXPR_CACHE_CAPACITY: usize = 1024;
+
+#[derive(Copy, Clone)]
+struct ExprCacheEntry {
+    key_ptr: usize,
+    key_off: u32,
+    value: *mut LeanObject,
+    occupied: bool,
 }
 
-impl ExprCache {
+impl ExprCacheEntry {
+    const EMPTY: ExprCacheEntry = ExprCacheEntry {
+        key_ptr: 0,
+        key_off: 0,
+        value: std::ptr::null_mut(),
+        occupied: false,
+    };
+}
+
+struct FixedExprCache<const N: usize> {
+    entries: [ExprCacheEntry; N],
+}
+
+impl<const N: usize> FixedExprCache<N> {
+    #[inline(always)]
     fn new() -> Self {
+        debug_assert!(N.is_power_of_two());
         Self {
-            map: HashMap::new(),
+            entries: [ExprCacheEntry::EMPTY; N],
         }
     }
 
+    #[inline(always)]
+    unsafe fn index(&self, key: (usize, u32)) -> usize {
+        let h = ffi::lean_uint64_mix_hash(key.0 as u64, key.1 as u64);
+        (h as usize) & (N - 1)
+    }
+
+    #[inline(always)]
     unsafe fn get(&self, key: (usize, u32)) -> Option<*mut LeanObject> {
-        self.map.get(&key).copied()
+        let entry = &self.entries[self.index(key)];
+        if entry.occupied && entry.key_ptr == key.0 && entry.key_off == key.1 {
+            Some(entry.value)
+        } else {
+            None
+        }
     }
 
+    #[inline(always)]
     unsafe fn insert(&mut self, key: (usize, u32), value: *mut LeanObject) {
-        use std::collections::hash_map::Entry;
-        match self.map.entry(key) {
-            Entry::Vacant(v) => {
-                lean_inc(value);
-                v.insert(value);
+        let entry = &mut self.entries[self.index(key)];
+        if entry.occupied {
+            if entry.key_ptr == key.0 && entry.key_off == key.1 {
+                return;
             }
-            Entry::Occupied(_) => {}
+            if !entry.value.is_null() {
+                lean_dec(entry.value);
+            }
+        }
+        lean_inc(value);
+        *entry = ExprCacheEntry {
+            key_ptr: key.0,
+            key_off: key.1,
+            value,
+            occupied: true,
+        };
+    }
+}
+
+impl<const N: usize> Drop for FixedExprCache<N> {
+    fn drop(&mut self) {
+        for entry in &self.entries {
+            if entry.occupied && !entry.value.is_null() {
+                unsafe {
+                    lean_dec(entry.value);
+                }
+            }
         }
     }
 }
 
-impl Drop for ExprCache {
-    fn drop(&mut self) {
-        for &value in self.map.values() {
-            unsafe {
-                lean_dec(value);
-            }
-        }
-    }
-}
+type ExprCache = FixedExprCache<EXPR_CACHE_CAPACITY>;
 
 
 const OPT_PARAM_NAME: &[u8] = b"optParam\0";
