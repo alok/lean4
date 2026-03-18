@@ -6,7 +6,7 @@ Author: Sofia Rodrigues
 #include "runtime/uv/signal.h"
 
 namespace lean {
-#ifndef LEAN_EMSCRIPTEN
+#ifdef LEAN_USE_LIBUV_RUNTIME
 
 using namespace std;
 

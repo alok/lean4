@@ -9,7 +9,7 @@ Author: Henrik Böving
 
 namespace lean {
 
-#ifndef LEAN_EMSCRIPTEN
+#ifdef LEAN_USE_LIBUV_RUNTIME
 
 void lean_ipv4_addr_to_in_addr(b_obj_arg ipv4_addr, in_addr* out) {
     out->s_addr = 0;

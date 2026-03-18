@@ -40,7 +40,9 @@ Authors: Leonardo de Moura, Sebastian Ullrich
 #include <cstdlib>
 #include <cctype>
 #include <sys/stat.h>
+#ifdef LEAN_USE_LIBUV
 #include <uv.h>
+#endif
 #include "util/io.h"
 #include "runtime/alloc.h"
 #include "runtime/io.h"
@@ -256,6 +258,7 @@ extern "C" LEAN_EXPORT obj_res lean_decode_io_error(int errnum, b_lean_obj_arg f
 }
 
 extern "C" LEAN_EXPORT obj_res lean_decode_uv_error(int errnum, b_lean_obj_arg fname) {
+#ifdef LEAN_USE_LIBUV
     object * details = mk_string(uv_strerror(errnum));
     // Keep in sync with lean_decode_io_error above
     switch (errnum) {
@@ -360,6 +363,9 @@ extern "C" LEAN_EXPORT obj_res lean_decode_uv_error(int errnum, b_lean_obj_arg f
         lean_assert(fname == nullptr);
         return lean_mk_io_error_other_error(errnum, details);
     }
+#else
+    return lean_decode_io_error(errnum, fname);
+#endif
 }
 
 // Used for when you try to convert a string with NUL bytes into a C string
@@ -1098,17 +1104,37 @@ structure Metadata where
 
 constant metadata : @& FilePath → IO IO.FS.Metadata
 */
-static obj_res timespec_to_obj(uv_timespec_t const & ts) {
+static obj_res timespec_to_obj(
+#ifdef LEAN_USE_LIBUV
+    uv_timespec_t const & ts
+#else
+    struct timespec const & ts
+#endif
+) {
     object * o = alloc_cnstr(0, 1, sizeof(uint32));
     cnstr_set(o, 0, lean_int64_to_int(ts.tv_sec));
     cnstr_set_uint32(o, sizeof(object *), ts.tv_nsec);
     return o;
 }
 
-static obj_res metadata_core(uv_stat_t const & st) {
+static obj_res metadata_core(
+#ifdef LEAN_USE_LIBUV
+    uv_stat_t const & st
+#else
+    struct stat const & st
+#endif
+) {
     object * mdata = alloc_cnstr(0, 2, 2 * sizeof(uint64) + sizeof(uint8));
+#ifdef LEAN_USE_LIBUV
     cnstr_set(mdata, 0, timespec_to_obj(st.st_atim));
     cnstr_set(mdata, 1, timespec_to_obj(st.st_mtim));
+#elif defined(__APPLE__)
+    cnstr_set(mdata, 0, timespec_to_obj(st.st_atimespec));
+    cnstr_set(mdata, 1, timespec_to_obj(st.st_mtimespec));
+#else
+    cnstr_set(mdata, 0, timespec_to_obj(st.st_atim));
+    cnstr_set(mdata, 1, timespec_to_obj(st.st_mtim));
+#endif
     cnstr_set_uint64(mdata, 2 * sizeof(object *), st.st_size);
     cnstr_set_uint64(mdata, 2 * sizeof(object *) + sizeof(uint64), st.st_nlink);
     cnstr_set_uint8(mdata, 2 * sizeof(object *) + 2 * sizeof(uint64),
@@ -1126,6 +1152,7 @@ extern "C" LEAN_EXPORT obj_res lean_io_metadata(b_obj_arg filename) {
     if (strlen(fname) != lean_string_size(filename) - 1) {
         return mk_embedded_nul_error(filename);
     }
+    #ifdef LEAN_USE_LIBUV
     uv_fs_t req;
     int ret = uv_fs_stat(NULL, &req, fname, NULL);
     if (ret < 0) {
@@ -1136,6 +1163,14 @@ extern "C" LEAN_EXPORT obj_res lean_io_metadata(b_obj_arg filename) {
         uv_fs_req_cleanup(&req);
         return mdata;
     }
+    #else
+    struct stat st;
+    if (stat(fname, &st) != 0) {
+        return io_result_mk_error(decode_io_error(errno, filename));
+    } else {
+        return metadata_core(st);
+    }
+    #endif
 }
 
 extern "C" LEAN_EXPORT obj_res lean_io_symlink_metadata(b_obj_arg filename) {
@@ -1146,6 +1181,7 @@ extern "C" LEAN_EXPORT obj_res lean_io_symlink_metadata(b_obj_arg filename) {
     if (strlen(fname) != lean_string_size(filename) - 1) {
         return mk_embedded_nul_error(filename);
     }
+    #ifdef LEAN_USE_LIBUV
     uv_fs_t req;
     int ret = uv_fs_lstat(NULL, &req, fname, NULL);
     if (ret < 0) {
@@ -1156,6 +1192,14 @@ extern "C" LEAN_EXPORT obj_res lean_io_symlink_metadata(b_obj_arg filename) {
         uv_fs_req_cleanup(&req);
         return mdata;
     }
+    #else
+    struct stat st;
+    if (lstat(fname, &st) != 0) {
+        return io_result_mk_error(decode_io_error(errno, filename));
+    } else {
+        return metadata_core(st);
+    }
+    #endif
 #endif
 }
 
@@ -1228,6 +1272,7 @@ extern "C" LEAN_EXPORT obj_res lean_io_hard_link(b_obj_arg orig, b_obj_arg link)
     if (strlen(link_str) != lean_string_size(link) - 1) {
         return mk_embedded_nul_error(link);
     }
+    #ifdef LEAN_USE_LIBUV
     uv_fs_t req;
     int ret = uv_fs_link(NULL, &req, orig_str, link_str, NULL);
     uv_fs_req_cleanup(&req);
@@ -1236,11 +1281,19 @@ extern "C" LEAN_EXPORT obj_res lean_io_hard_link(b_obj_arg orig, b_obj_arg link)
     } else {
         return io_result_mk_ok(box(0));
     }
+    #else
+    if (::link(orig_str, link_str) != 0) {
+        return io_result_mk_error(decode_io_error(errno, orig));
+    } else {
+        return io_result_mk_ok(box(0));
+    }
+    #endif
 }
 
 /* createTempFile : IO (Handle × FilePath) */
 extern "C" LEAN_EXPORT obj_res lean_io_create_tempfile(lean_object * /* w */) {
     char path[PATH_MAX];
+    #ifdef LEAN_USE_LIBUV
     size_t base_len = PATH_MAX;
     int ret = uv_os_tmpdir(path, &base_len);
     if (ret < 0) {
@@ -1248,6 +1301,15 @@ extern "C" LEAN_EXPORT obj_res lean_io_create_tempfile(lean_object * /* w */) {
     } else if (base_len == 0) {
         return lean_io_result_mk_error(decode_uv_error(UV_ENOENT, mk_string("")));
     }
+    #else
+    const char * tmp = getenv("TMPDIR");
+    if (tmp == nullptr || tmp[0] == '\0') {
+        tmp = "/tmp";
+    }
+    size_t base_len = strnlen(tmp, PATH_MAX - 1);
+    memcpy(path, tmp, base_len);
+    path[base_len] = '\0';
+    #endif
 
 #if defined(LEAN_WINDOWS)
     // On Windows `GetTempPathW` always returns a path ending in \, but libuv removes it.
@@ -1269,12 +1331,11 @@ extern "C" LEAN_EXPORT obj_res lean_io_create_tempfile(lean_object * /* w */) {
     lean_always_assert(PATH_MAX >= strlen(path) + file_pattern_size + 1);
     strcat(path, file_pattern);
 
+    #ifdef LEAN_USE_LIBUV
     uv_fs_t req;
-    // Differences from lean_io_create_tempdir start here
     ret = uv_fs_mkstemp(NULL, &req, path, NULL);
     if (ret < 0) {
         uv_fs_req_cleanup(&req);
-        // If mkstemp throws an error we cannot rely on path to contain a proper file name.
         return io_result_mk_error(decode_uv_error(ret, nullptr));
     } else {
         FILE* handle = fdopen(req.result, "r+");
@@ -1282,11 +1343,22 @@ extern "C" LEAN_EXPORT obj_res lean_io_create_tempfile(lean_object * /* w */) {
         uv_fs_req_cleanup(&req);
         return lean_io_result_mk_ok(pair.steal());
     }
+    #else
+    int fd = mkstemp(path);
+    if (fd < 0) {
+        return io_result_mk_error(decode_io_error(errno, nullptr));
+    } else {
+        FILE * handle = fdopen(fd, "r+");
+        object_ref pair = mk_cnstr(0, io_wrap_handle(handle), mk_string(path));
+        return lean_io_result_mk_ok(pair.steal());
+    }
+    #endif
 }
 
 /* createTempDir : IO FilePath */
 extern "C" LEAN_EXPORT obj_res lean_io_create_tempdir(lean_object * /* w */) {
     char path[PATH_MAX];
+    #ifdef LEAN_USE_LIBUV
     size_t base_len = PATH_MAX;
     int ret = uv_os_tmpdir(path, &base_len);
     if (ret < 0) {
@@ -1294,6 +1366,15 @@ extern "C" LEAN_EXPORT obj_res lean_io_create_tempdir(lean_object * /* w */) {
     } else if (base_len == 0) {
         return lean_io_result_mk_error(decode_uv_error(UV_ENOENT, mk_string("")));
     }
+    #else
+    const char * tmp = getenv("TMPDIR");
+    if (tmp == nullptr || tmp[0] == '\0') {
+        tmp = "/tmp";
+    }
+    size_t base_len = strnlen(tmp, PATH_MAX - 1);
+    memcpy(path, tmp, base_len);
+    path[base_len] = '\0';
+    #endif
 
 #if defined(LEAN_WINDOWS)
     // On Windows `GetTempPathW` always returns a path ending in \, but libuv removes it.
@@ -1315,18 +1396,24 @@ extern "C" LEAN_EXPORT obj_res lean_io_create_tempdir(lean_object * /* w */) {
     lean_always_assert(PATH_MAX >= strlen(path) + file_pattern_size + 1);
     strcat(path, file_pattern);
 
+    #ifdef LEAN_USE_LIBUV
     uv_fs_t req;
-    // Differences from lean_io_create_tempfile start here
     ret = uv_fs_mkdtemp(NULL, &req, path, NULL);
     if (ret < 0) {
         uv_fs_req_cleanup(&req);
-        // If mkdtemp throws an error we cannot rely on path to contain a proper file name.
         return io_result_mk_error(decode_uv_error(ret, nullptr));
     } else {
         obj_res res = lean_io_result_mk_ok(mk_string(req.path));
         uv_fs_req_cleanup(&req);
         return res;
     }
+    #else
+    if (mkdtemp(path) == nullptr) {
+        return io_result_mk_error(decode_io_error(errno, nullptr));
+    } else {
+        return lean_io_result_mk_ok(mk_string(path));
+    }
+    #endif
 }
 
 extern "C" LEAN_EXPORT obj_res lean_io_remove_file(b_obj_arg filename) {
@@ -1334,6 +1421,7 @@ extern "C" LEAN_EXPORT obj_res lean_io_remove_file(b_obj_arg filename) {
     if (strlen(fname) != lean_string_size(filename) - 1) {
         return mk_embedded_nul_error(filename);
     }
+    #ifdef LEAN_USE_LIBUV
     uv_fs_t req;
     int ret = uv_fs_unlink(NULL, &req, fname, NULL);
     uv_fs_req_cleanup(&req);
@@ -1342,6 +1430,13 @@ extern "C" LEAN_EXPORT obj_res lean_io_remove_file(b_obj_arg filename) {
     } else {
         return io_result_mk_ok(box(0));
     }
+    #else
+    if (unlink(fname) != 0) {
+        return io_result_mk_error(decode_io_error(errno, filename));
+    } else {
+        return io_result_mk_ok(box(0));
+    }
+    #endif
 }
 
 extern "C" LEAN_EXPORT obj_res lean_io_app_path() {

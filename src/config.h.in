@@ -8,6 +8,11 @@ Author: Leonardo de Moura
 #include <lean/version.h>
 
 @LEAN_MIMALLOC@
+@LEAN_USE_LIBUV@
 @LEAN_SMALL_ALLOCATOR@
 @LEAN_LAZY_RC@
 @LEAN_IS_STAGE0@
+
+#if defined(LEAN_USE_LIBUV) && !defined(LEAN_EMSCRIPTEN)
+#define LEAN_USE_LIBUV_RUNTIME
+#endif

@@ -8,7 +8,7 @@ Author: Sofia Rodrigues, Henrik Böving
 #include <lean/lean.h>
 #include "runtime/uv/event_loop.h"
 
-#ifndef LEAN_EMSCRIPTEN
+#ifdef LEAN_USE_LIBUV_RUNTIME
 #include <uv.h>
 #endif
 
@@ -17,7 +17,7 @@ namespace lean {
 static lean_external_class * g_uv_timer_external_class = NULL;
 void initialize_libuv_timer();
 
-#ifndef LEAN_EMSCRIPTEN
+#ifdef LEAN_USE_LIBUV_RUNTIME
 using namespace std;
 
 enum uv_timer_state {

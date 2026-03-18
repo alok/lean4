@@ -7,13 +7,13 @@ Author: Henrik Böving
 #include <lean/lean.h>
 #include "runtime/object.h"
 
-#ifndef LEAN_EMSCRIPTEN
+#ifdef LEAN_USE_LIBUV_RUNTIME
 #include <uv.h>
 #endif
 
 namespace lean {
 
-#ifndef LEAN_EMSCRIPTEN
+#ifdef LEAN_USE_LIBUV_RUNTIME
 
 typedef union in_addr_storage {
     in_addr ipv4;

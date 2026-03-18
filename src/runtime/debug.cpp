@@ -21,6 +21,13 @@ Author: Leonardo de Moura
 #include "runtime/debug.h"
 
 namespace lean {
+
+#if defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__)
+#define LEAN_RUNTIME_IOS 1
+#else
+#define LEAN_RUNTIME_IOS 0
+#endif
+
 static volatile bool           g_has_violations     = false;
 static volatile bool           g_enable_assertions  = true;
 static std::set<std::string> * g_enabled_debug_tags = nullptr;
@@ -97,7 +104,7 @@ void invoke_debugger() {
     for (;;) {
         if (std::cin.eof())
             debuggable_exit();
-#if !defined(LEAN_WINDOWS)
+#if !defined(LEAN_WINDOWS) && !LEAN_RUNTIME_IOS
         std::cerr << "(C)ontinue, (A)bort/exit, (S)top/trap\n";
 #else
         std::cerr << "(C)ontinue, (A)bort/exit, (S)top/trap, Invoke (G)DB\n";
@@ -117,7 +124,7 @@ void invoke_debugger() {
         case 's':
             // force seg fault...
             debuggable_exit();
-#if !defined(LEAN_WINDOWS)
+#if !defined(LEAN_WINDOWS) && !LEAN_RUNTIME_IOS
         case 'G':
         case 'g': {
             std::cerr << "INVOKING GDB...\n";

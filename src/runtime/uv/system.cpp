@@ -7,7 +7,7 @@ Author: Sofia Rodrigues
 #include "runtime/uv/system.h"
 
 namespace lean {
-#ifndef LEAN_EMSCRIPTEN
+#ifdef LEAN_USE_LIBUV_RUNTIME
 
 using namespace std;
 
@@ -628,7 +628,7 @@ extern "C" LEAN_EXPORT lean_obj_res lean_uv_os_get_passwd() {
 }
 
 // Std.Internal.UV.System.osGetGroup : IO (Option GroupInfo)
-extern "C" LEAN_EXPORT lean_obj_res lean_uv_os_get_group() {
+extern "C" LEAN_EXPORT lean_obj_res lean_uv_os_get_group(uint64_t gid) {
     lean_always_assert(
         false && ("Please build a version of Lean4 with libuv to invoke this.")
     );

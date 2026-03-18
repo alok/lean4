@@ -9,7 +9,7 @@ Author: Sofia Rodrigues
 
 namespace lean {
 
-#ifndef LEAN_EMSCRIPTEN
+#ifdef LEAN_USE_LIBUV_RUNTIME
 
 // Stores all the things needed to connect to a TCP socket.
 typedef struct {
