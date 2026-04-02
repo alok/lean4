@@ -7,7 +7,7 @@ Author: Sofia Rodrigues, Henrik Böving
 #include "runtime/uv/timer.h"
 
 namespace lean {
-#ifndef LEAN_EMSCRIPTEN
+#ifdef LEAN_USE_LIBUV_RUNTIME
 
 using namespace std;
 

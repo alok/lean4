@@ -301,6 +301,17 @@ endif()
 
 # LibUV
 if(NOT USE_LIBUV)
+  # ExternalProject stage directories preserve CMake caches across reconfigure.
+  # When switching from USE_LIBUV=ON to OFF, purge any stale discovery results
+  # so later status output and link flags cannot still report host libuv.
+  get_cmake_property(_lean_cache_vars CACHE_VARIABLES)
+  foreach(_lean_cache_var ${_lean_cache_vars})
+    if(_lean_cache_var MATCHES "^LIBUV_")
+      unset(${_lean_cache_var} CACHE)
+    endif()
+  endforeach()
+  unset(_lean_cache_vars)
+  unset(_lean_cache_var)
   set(LIBUV_INCLUDE_DIRS "")
   set(LIBUV_LDFLAGS "")
 elseif(CMAKE_SYSTEM_NAME MATCHES "Emscripten")

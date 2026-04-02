@@ -9,7 +9,7 @@ Author: Sofia Rodrigues
 
 namespace lean {
 
-#ifndef LEAN_EMSCRIPTEN
+#ifdef LEAN_USE_LIBUV_RUNTIME
 
 // Stores all the things needed to send data to a UDP socket.
 typedef struct {
