@@ -1,0 +1,61 @@
+name: iOS Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Upload generated archives to the current tag release
+        required: false
+        default: false
+        type: boolean
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ios-simulator
+            ios_sdk: iphonesimulator
+            ios_target: arm64-apple-ios16.0-simulator
+            build_host_oleans: "1"
+          - name: ios-device
+            ios_sdk: iphoneos
+            ios_target: arm64-apple-ios16.0
+            build_host_oleans: "0"
+
+    steps:
+      - name: Install Brew Packages
+        run: |
+          brew install zstd
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build artifacts
+        env:
+          IOS_SDK: ${{ matrix.ios_sdk }}
+          IOS_TARGET: ${{ matrix.ios_target }}
+          IOS_DEPLOYMENT_TARGET: "16.0"
+          BUILD_HOST_OLEANS: ${{ matrix.build_host_oleans }}
+        run: |
+          bash script/build_ios_artifacts.sh
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: ${{ matrix.name }}
+          path: build/dist/*.tar.zst
+
+      - name: Upload release assets
+        if: startsWith(github.ref, 'refs/tags/') || inputs.publish_release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/dist/*.tar.zst
