@@ -10,6 +10,12 @@ Author: Leonardo de Moura
 #include <string>
 #include <memory>
 #include <cstdlib>
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#ifndef TARGET_OS_VISION
+#define TARGET_OS_VISION 0
+#endif
+#endif
 #if defined(LEAN_EMSCRIPTEN)
 #include <emscripten.h>
 #endif
@@ -22,10 +28,11 @@ Author: Leonardo de Moura
 
 namespace lean {
 
-#if defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__)
-#define LEAN_RUNTIME_IOS 1
+#if defined(__APPLE__) && \
+    (TARGET_OS_IPHONE || TARGET_OS_TV || TARGET_OS_WATCH || TARGET_OS_VISION)
+#define LEAN_RUNTIME_RESTRICTED_APPLE_PLATFORM 1
 #else
-#define LEAN_RUNTIME_IOS 0
+#define LEAN_RUNTIME_RESTRICTED_APPLE_PLATFORM 0
 #endif
 
 static volatile bool           g_has_violations     = false;
@@ -104,10 +111,10 @@ void invoke_debugger() {
     for (;;) {
         if (std::cin.eof())
             debuggable_exit();
-#if !defined(LEAN_WINDOWS) && !LEAN_RUNTIME_IOS
-        std::cerr << "(C)ontinue, (A)bort/exit, (S)top/trap\n";
-#else
+#if !defined(LEAN_WINDOWS) && !LEAN_RUNTIME_RESTRICTED_APPLE_PLATFORM
         std::cerr << "(C)ontinue, (A)bort/exit, (S)top/trap, Invoke (G)DB\n";
+#else
+        std::cerr << "(C)ontinue, (A)bort/exit, (S)top/trap\n";
 #endif
         char result;
         std::cin >> result;
@@ -124,7 +131,7 @@ void invoke_debugger() {
         case 's':
             // force seg fault...
             debuggable_exit();
-#if !defined(LEAN_WINDOWS) && !LEAN_RUNTIME_IOS
+#if !defined(LEAN_WINDOWS) && !LEAN_RUNTIME_RESTRICTED_APPLE_PLATFORM
         case 'G':
         case 'g': {
             std::cerr << "INVOKING GDB...\n";
